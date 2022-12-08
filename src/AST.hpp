@@ -5,8 +5,6 @@
 #include <memory>
 #include <string>
 
-extern FILE *yyout;
-
 class BaseAST
 {
 public:
@@ -35,7 +33,7 @@ public:
 
     void Dump() const override
     {
-        std::cout << "func @";
+        std::cout << "fun @";
         std::cout << ident;
         std::cout << "(): ";
         func_type->Dump();
