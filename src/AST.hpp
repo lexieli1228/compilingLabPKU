@@ -5,6 +5,8 @@
 #include <memory>
 #include <string>
 
+extern FILE *yyout;
+
 class BaseAST
 {
 public:
