@@ -10,7 +10,7 @@ class BaseAST
 public:
     virtual ~BaseAST() = default;
 
-    virtual void Dump() const = 0;
+    virtual void Dump(std::string& strOriginal) const = 0;
 };
 
 class CompUnitAST : public BaseAST
@@ -18,9 +18,9 @@ class CompUnitAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> func_def;
 
-    void Dump() const override
+    void Dump(std::string& strOriginal) const override
     {
-        func_def->Dump();
+        func_def->Dump(strOriginal);
     }
 };
 
@@ -31,15 +31,16 @@ public:
     std::string ident;
     std::unique_ptr<BaseAST> block;
 
-    void Dump() const override
+    void Dump(std::string& strOriginal) const override
     {
-        std::cout << "fun @";
-        std::cout << ident;
-        std::cout << "(): ";
-        func_type->Dump();
-        std::cout << " {" << std::endl;
-        block->Dump();
-        std::cout << "}";
+        strOriginal += "fun @";
+        strOriginal += ident;
+        strOriginal += "(): ";
+        func_type->Dump(strOriginal);
+        strOriginal += " {";
+        strOriginal += "\n";
+        block->Dump(strOriginal);
+        strOriginal += "}";
     }
 };
 
@@ -47,11 +48,11 @@ class FuncTypeAST : public BaseAST
 {
 public:
     std::string funcType;
-    void Dump() const override
+    void Dump(std::string& strOriginal) const override
     {
         if (funcType == "int")
         {
-            std::cout << "i32";
+            strOriginal += "i32";
         }
     }
 };
@@ -60,12 +61,12 @@ class BlockAST : public BaseAST
 {
 public:
     std::unique_ptr<BaseAST> stmt;
-    void Dump() const override
+    void Dump(std::string& strOriginal) const override
     {
-        std::cout << "%entry: ";
-        std::cout << std::endl;
-        stmt->Dump();
-        std::cout << std::endl;
+        strOriginal += "%entry: ";
+        strOriginal += "\n";
+        stmt->Dump(strOriginal);
+        strOriginal += "\n";
     }
 };
 
@@ -73,10 +74,9 @@ class StmtAST : public BaseAST
 {
 public:
     int Number;
-    void Dump() const override
+    void Dump(std::string& strOriginal) const override
     {
-        std::cout << "  ";
-        std::cout << "ret ";
-        std::cout << Number;
+        strOriginal += "  ret ";
+        strOriginal += std::to_string(Number);
     }
 };
