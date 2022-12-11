@@ -412,14 +412,32 @@ public:
             registerCnt ++;
             std::string lAndLastRegister = lAndExp->ReversalDump(strOriginal);
             std::string eqLastRegister = eqExp->ReversalDump(strOriginal);
+
+            // curr_0 = ne lAndExp, 0
+            currMaxRegister ++;
+            std::string currRegister_0 = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister_0;
+            tempStr += " = ne ";
+            tempStr += lAndLastRegister;
+            tempStr += ", 0\n";
+            // curr_1 = ne eqExp, 0
+            currMaxRegister ++;
+            std::string currRegister_1 = std::to_string(currMaxRegister);
+            tempStr += "  %";
+            tempStr += currRegister_1;
+            tempStr += " = ne ";
+            tempStr += eqLastRegister;
+            tempStr += ", 0\n";
+            // curr_2 = and curr_0, curr_1
             currMaxRegister ++;
             std::string currRegister = std::to_string(currMaxRegister);
-            std::string tempStr = "  %";
+            tempStr += "  %";
             tempStr += currRegister;
-            tempStr += " = and ";
-            tempStr += lAndLastRegister;
-            tempStr += ", ";
-            tempStr += eqLastRegister;
+            tempStr += " = and %";
+            tempStr += currRegister_0;
+            tempStr += ", %";
+            tempStr += currRegister_1;
             tempStr += "\n";
             strOriginal += tempStr;
             return "%" + currRegister;
@@ -448,14 +466,32 @@ public:
             registerCnt ++;
             std::string lOrLastRegister = lOrExp->ReversalDump(strOriginal);
             std::string lAndLastRegister = lAndExp->ReversalDump(strOriginal);
+
+            // curr_0 = ne lOrExp, 0
+            currMaxRegister ++;
+            std::string currRegister_0 = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister_0;
+            tempStr += " = ne ";
+            tempStr += lOrLastRegister;
+            tempStr += ", 0\n";
+            // curr_1 = ne LAndExp, 0
+            currMaxRegister ++;
+            std::string currRegister_1 = std::to_string(currMaxRegister);
+            tempStr += "  %";
+            tempStr += currRegister_1;
+            tempStr += " = ne ";
+            tempStr += lAndLastRegister;
+            tempStr += ", 0\n";
+            // curr_2 = or curr_0, curr_1
             currMaxRegister ++;
             std::string currRegister = std::to_string(currMaxRegister);
-            std::string tempStr = "  %";
+            tempStr += "  %";
             tempStr += currRegister;
-            tempStr += " = or ";
-            tempStr += lOrLastRegister;
-            tempStr += ", ";
-            tempStr += lAndLastRegister;
+            tempStr += " = or %";
+            tempStr += currRegister_0;
+            tempStr += ", %";
+            tempStr += currRegister_1;
             tempStr += "\n";
             strOriginal += tempStr;
             return "%" + currRegister;
