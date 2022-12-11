@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <cstring>
 
 extern int registerCnt;
 extern int currMaxRegister;
@@ -95,12 +96,12 @@ public:
 class ExpAST : public BaseAST
 {
 public:
-    std::unique_ptr<BaseAST> addExp;
+    std::unique_ptr<BaseAST> lOrExp;
     void Dump(std::string &strOriginal) const override {}
     // exp所用的寄存器或者一个number
     std::string ReversalDump(std::string &strOriginal) override
     {
-        return addExp->ReversalDump(strOriginal);
+        return lOrExp->ReversalDump(strOriginal);
     }
 };
 
@@ -295,3 +296,169 @@ public:
         }
     }
 }; 
+
+class RelExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> addExp;
+    std::unique_ptr<BaseAST> relExp;
+    std::string compOperator;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        // AddExp
+        if (selfMinorType[0] == '0')
+        {
+            return addExp->ReversalDump(strOriginal);
+        }
+        // RelExp ("<" | ">" | "<=" | ">=") AddExp
+        else
+        {
+            registerCnt ++;
+            std::string relLastRegister = relExp->ReversalDump(strOriginal);
+            std::string addLastRegister = addExp->ReversalDump(strOriginal);
+            currMaxRegister ++;
+            std::string currRegister = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister;
+            if (strcmp(compOperator.c_str(), "<") == 0)
+            {
+                tempStr += " = lt ";
+            }
+            else if (strcmp(compOperator.c_str(), ">") == 0)
+            {
+                tempStr += " = ge ";
+            }
+            else if (strcmp(compOperator.c_str(), "<=") == 0)
+            {
+                tempStr += " = le ";
+            }
+            else if (strcmp(compOperator.c_str(), ">=") == 0)
+            {
+                tempStr += " = ge ";
+            }
+            tempStr += relLastRegister;
+            tempStr += ", ";
+            tempStr += addLastRegister;
+            tempStr += "\n";
+            strOriginal += tempStr;
+            return "%" + currRegister;
+        }
+    }
+};
+
+class EqExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> relExp;
+    std::unique_ptr<BaseAST> eqExp;
+    std::string eqOperator;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        // RepExp
+        if (selfMinorType[0] == '0')
+        {
+            return relExp->ReversalDump(strOriginal);
+        }
+        // EqExp ("==" | "!=") RelExp;
+        else
+        {
+            registerCnt ++;
+            std::string eqLastRegister = eqExp->ReversalDump(strOriginal);
+            std::string relLastRegister = relExp->ReversalDump(strOriginal);
+            currMaxRegister ++;
+            std::string currRegister = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister;
+            if (strcmp(eqOperator.c_str(), "==") == 0)
+            {
+                tempStr += " = eq ";
+            }
+            else if (strcmp(eqOperator.c_str(), "!=") == 0)
+            {
+                tempStr += " = ne ";
+            }
+            tempStr += eqLastRegister;
+            tempStr += ", ";
+            tempStr += relLastRegister;
+            tempStr += "\n";
+            strOriginal += tempStr;
+            return "%" + currRegister;
+        }
+    }
+};
+
+class LAndExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> eqExp;
+    std::unique_ptr<BaseAST> lAndExp;
+    std::string lAndOperator;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        // EqExp
+        if (selfMinorType[0] == '0')
+        {
+            return eqExp->ReversalDump(strOriginal);
+        }
+        // LAndExp "&&" EqExp
+        else
+        {
+            registerCnt ++;
+            std::string lAndLastRegister = lAndExp->ReversalDump(strOriginal);
+            std::string eqLastRegister = eqExp->ReversalDump(strOriginal);
+            currMaxRegister ++;
+            std::string currRegister = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister;
+            tempStr += " = and ";
+            tempStr += lAndLastRegister;
+            tempStr += ", ";
+            tempStr += eqLastRegister;
+            tempStr += "\n";
+            strOriginal += tempStr;
+            return "%" + currRegister;
+        }
+    }
+};
+
+class LOrExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> lAndExp;
+    std::unique_ptr<BaseAST> lOrExp;
+    std::string lOrOperator;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        // lAndExp
+        if (selfMinorType[0] == '0')
+        {
+            return lAndExp->ReversalDump(strOriginal);
+        }
+        // LOrExp "||" LAndExp
+        else
+        {
+            registerCnt ++;
+            std::string lOrLastRegister = lOrExp->ReversalDump(strOriginal);
+            std::string lAndLastRegister = lAndExp->ReversalDump(strOriginal);
+            currMaxRegister ++;
+            std::string currRegister = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister;
+            tempStr += " = or ";
+            tempStr += lOrLastRegister;
+            tempStr += ", ";
+            tempStr += lAndLastRegister;
+            tempStr += "\n";
+            strOriginal += tempStr;
+            return "%" + currRegister;
+        }
+    }
+};
