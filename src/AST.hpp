@@ -6,6 +6,7 @@
 #include <string>
 
 extern int registerCnt;
+extern int currMaxRegister;
 
 class BaseAST
 {
@@ -74,6 +75,7 @@ public:
         strOriginal += "%entry: ";
         strOriginal += "\n";
         stmt->Dump(strOriginal);
+        strOriginal += "\n";
     }
 };
 
@@ -87,19 +89,18 @@ public:
         std::string lastLevelRegister = exp->ReversalDump(strOriginal);
         strOriginal += "  ret ";
         strOriginal += lastLevelRegister;
-        strOriginal += "\n";
     }
 };
 
 class ExpAST : public BaseAST
 {
 public:
-    std::unique_ptr<BaseAST> unaryExp;
+    std::unique_ptr<BaseAST> addExp;
     void Dump(std::string &strOriginal) const override {}
     // exp所用的寄存器或者一个number
     std::string ReversalDump(std::string &strOriginal) override
     {
-        return unaryExp->ReversalDump(strOriginal);
+        return addExp->ReversalDump(strOriginal);
     }
 };
 
@@ -221,5 +222,55 @@ public:
     {
         registerCnt += 1;
         return unaryOp;
+    }
+};
+
+class MulExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> unaryExp;
+    std::unique_ptr<BaseAST> mulExp;
+    std::string mulOperator;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        // UnaryExp
+        if (selfMinorType[0] == '0')
+        {
+            return unaryExp->ReversalDump(strOriginal);
+        }
+        // MulExp ('*' | '/' | '%') UnaryExp
+        else
+        {
+            registerCnt ++;
+            std::string mulLastRegister = mulExp->ReversalDump(strOriginal);
+            std::string unaryLastRegister = unaryExp->ReversalDump(strOriginal);
+        }
+    }
+};
+
+class AddExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> mulExp;
+    std::unique_ptr<BaseAST> addExp;
+    std::string addOperator;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        // MulExp
+        if (selfMinorType[0] == '0')
+        {
+            return mulExp->ReversalDump(strOriginal);
+        }
+        // AddExp ('+' | '-') MulExp
+        else
+        {
+            registerCnt ++;
+            std::string addLastRegister = addExp->ReversalDump(strOriginal);
+            std::string mulLastRegister = mulExp->ReversalDump(strOriginal);
+        }
     }
 };
