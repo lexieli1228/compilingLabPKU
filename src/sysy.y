@@ -28,11 +28,11 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN
+%token INT RETURN LT GT LE GE EQ NE LAND LOR
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp Number UnaryExp UnaryOp MulExp AddExp
+%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp Number UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
 
 %%
 
@@ -79,9 +79,9 @@ Stmt
   ;
 
 Exp
-  : AddExp {
+  : LOrExp {
     auto ast = new ExpAST();
-    ast->addExp = unique_ptr<BaseAST>($1);
+    ast->lOrExp = unique_ptr<BaseAST>($1);
     $$ = ast;
   };
 
@@ -195,6 +195,101 @@ AddExp
     ast->addOperator = "-";
     ast->addExp = unique_ptr<BaseAST>($1);
     ast->mulExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+RelExp
+  : AddExp {
+    auto ast = new RelExpAST();
+    ast->selfMinorType = "0";
+    ast->addExp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | RelExp LT AddExp {
+    auto ast = new RelExpAST();
+    ast->selfMinorType = "1";
+    ast->compOperator = "<";
+    ast->relExp = unique_ptr<BaseAST>($1);
+    ast->addExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | RelExp GT AddExp {
+    auto ast = new RelExpAST();
+    ast->selfMinorType = "1";
+    ast->compOperator = ">";
+    ast->relExp = unique_ptr<BaseAST>($1);
+    ast->addExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | RelExp LE AddExp {
+    auto ast = new RelExpAST();
+    ast->selfMinorType = "1";
+    ast->compOperator = "<=";
+    ast->relExp = unique_ptr<BaseAST>($1);
+    ast->addExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | RelExp GE AddExp {
+    auto ast = new RelExpAST();
+    ast->selfMinorType = "1";
+    ast->compOperator = ">=";
+    ast->relExp = unique_ptr<BaseAST>($1);
+    ast->addExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+EqExp
+  : RelExp {
+    auto ast = new EqExpAST();
+    ast->selfMinorType = "0";
+    ast->relExp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | EqExp EQ RelExp {
+    auto ast = new EqExpAST();
+    ast->selfMinorType = "1";
+    ast->eqOperator = "==";
+    ast->eqExp = unique_ptr<BaseAST>($1);
+    ast->relExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | EqExp NE RelExp {
+    auto ast = new EqExpAST();
+    ast->selfMinorType = "1";
+    ast->eqOperator = "!=";
+    ast->eqExp = unique_ptr<BaseAST>($1);
+    ast->relExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+LAndExp
+  : EqExp {
+    auto ast = new LAndExpAST();
+    ast->selfMinorType = "0";
+    ast->eqExp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | LAndExp LAND EqExp {
+    auto ast = new LAndExpAST();
+    ast->selfMinorType = "1";
+    ast->lAndOperator = "&&";
+    ast->lAndExp = unique_ptr<BaseAST>($1);
+    ast->eqExp = unique_ptr<BaseAST>($3);
+  };
+
+LOrExp
+  : LAndExp {
+    auto ast = new LOrExpAST();
+    ast->selfMinorType = "0";
+    ast->lAndExp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | LOrExp LOR LAndExp {
+    auto ast = new LOrExpAST();
+    ast->selfMinorType = "1";
+    ast->lOrOperator = "||";
+    ast->lOrExp = unique_ptr<BaseAST>($1);
+    ast->lAndExp = unique_ptr<BaseAST>($3);
     $$ = ast;
   };
 
