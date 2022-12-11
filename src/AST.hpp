@@ -159,55 +159,36 @@ public:
         {
             std::string currOperator = unaryOp->ReversalDump(strOriginal);
             std::string lastLevelRegister = unaryExp->ReversalDump(strOriginal);
-            // it is a number
-            if (lastLevelRegister[0] != '%')
+
+            if (currOperator[0] == '-')
             {
-                if (currOperator[0] == '-')
-                {
-                    std::string tempStr = "  %0 = sub 0, ";
-                    tempStr += lastLevelRegister;
-                    tempStr += "\n";
-                    strOriginal += tempStr;
-                }
-                else if (currOperator[0] == '!')
-                {
-                    std::string tempStr = "  %0 = eq ";
-                    tempStr += lastLevelRegister;
-                    tempStr += ", 0\n";
-                    strOriginal += tempStr;
-                }
-                return "%0";
+                currMaxRegister += 1;
+                std::string currRegister = std::to_string(currMaxRegister);
+                std::string tempStr = "  %";
+                tempStr += currRegister;
+                tempStr += " = sub 0, ";
+                tempStr += lastLevelRegister;
+                tempStr += "\n";
+                strOriginal += tempStr;
+                return "%" + currRegister;
             }
-            // it is a register
-            else
+            else if (currOperator[0] == '!')
             {
-                std::string tempLastLevelRegister = lastLevelRegister;
-                tempLastLevelRegister.erase(0, 1);
-                int currRegisterNum = std::atoi(tempLastLevelRegister.c_str()) + 1;
-                std::string currRegister = "%" + std::to_string(currRegisterNum);
-                if (currOperator[0] == '-')
-                {
-                    std::string tempStr = "  ";
-                    tempStr += currRegister;
-                    tempStr += " = sub 0, ";
-                    tempStr += lastLevelRegister;
-                    tempStr += "\n";
-                    strOriginal += tempStr;
-                }
-                else if (currOperator[0] == '!')
-                {
-                    std::string tempStr = currRegister;
-                    tempStr += " = eq ";
-                    tempStr += lastLevelRegister;
-                    tempStr += ", 0\n";
-                    strOriginal += tempStr;
-                }
-                else if (currOperator[0] == '+')
-                {
-                    return lastLevelRegister;
-                }
-                return currRegister;
+                currMaxRegister += 1;
+                std::string currRegister = std::to_string(currMaxRegister);
+                std::string tempStr = "  %";
+                tempStr += currRegister;
+                tempStr += " = eq ";
+                tempStr += lastLevelRegister;
+                tempStr += ", 0\n";
+                strOriginal += tempStr;
+                return "%" + currRegister;
             }
+            else if (currOperator[0] == '+')
+            {
+                return lastLevelRegister;
+            }
+            return "";
         }
     }
 };
@@ -246,6 +227,28 @@ public:
             registerCnt ++;
             std::string mulLastRegister = mulExp->ReversalDump(strOriginal);
             std::string unaryLastRegister = unaryExp->ReversalDump(strOriginal);
+            currMaxRegister ++;
+            std::string currRegister = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister;
+            if (mulOperator[0] == '*')
+            {
+                tempStr += " = mul ";
+            }
+            else if (mulOperator[0] == '/')
+            {
+                tempStr += " = div ";
+            }
+            else if (mulOperator[0] == '%')
+            {
+                tempStr += " = mod ";
+            }
+            tempStr += mulLastRegister;
+            tempStr += ", ";
+            tempStr += unaryLastRegister;
+            tempStr += "\n";
+            strOriginal += tempStr;
+            return "%" + currRegister;
         }
     }
 };
@@ -271,6 +274,24 @@ public:
             registerCnt ++;
             std::string addLastRegister = addExp->ReversalDump(strOriginal);
             std::string mulLastRegister = mulExp->ReversalDump(strOriginal);
+            currMaxRegister ++;
+            std::string currRegister = std::to_string(currMaxRegister);
+            std::string tempStr = "  %";
+            tempStr += currRegister;
+            if (addOperator[0] == '+')
+            {
+                tempStr += " = add ";
+            }
+            else if (addOperator[0] == '-')
+            {
+                tempStr += " = sub ";
+            }
+            tempStr += addLastRegister;
+            tempStr += ", ";
+            tempStr += mulLastRegister;
+            tempStr += "\n";
+            strOriginal += tempStr;
+            return "%" + currRegister;
         }
     }
-};
+}; 
