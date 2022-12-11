@@ -275,6 +275,7 @@ LAndExp
     ast->lAndOperator = "&&";
     ast->lAndExp = unique_ptr<BaseAST>($1);
     ast->eqExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
   };
 
 LOrExp
