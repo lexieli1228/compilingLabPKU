@@ -79,7 +79,7 @@ Stmt
   ;
 
 Exp
-  : UnaryExp {
+  : AddExp {
     auto ast = new ExpAST();
     ast->addExp = unique_ptr<BaseAST>($1);
     $$ = ast;
@@ -147,12 +147,12 @@ MulExp
     auto ast = new MulExpAST();
     ast->selfMinorType = "0";
     ast->unaryExp = unique_ptr<BaseAST>($1);
-    $$ = ast
+    $$ = ast;
   }
   | MulExp '*' UnaryExp {
     auto ast = new MulExpAST();
     ast->selfMinorType = "1";
-    ast->mulOprator = "*";
+    ast->mulOperator = "*";
     ast->mulExp = unique_ptr<BaseAST>($1);
     ast->unaryExp = unique_ptr<BaseAST>($3);
     $$ = ast;
@@ -160,7 +160,7 @@ MulExp
   | MulExp '/' UnaryExp {
     auto ast = new MulExpAST();
     ast->selfMinorType = "1";
-    ast->mulOprator = "/";
+    ast->mulOperator = "/";
     ast->mulExp = unique_ptr<BaseAST>($1);
     ast->unaryExp = unique_ptr<BaseAST>($3);
     $$ = ast;
@@ -168,7 +168,7 @@ MulExp
   | MulExp '%' UnaryExp {
     auto ast = new MulExpAST();
     ast->selfMinorType = "1";
-    ast->mulOprator = "%";
+    ast->mulOperator = "%";
     ast->mulExp = unique_ptr<BaseAST>($1);
     ast->unaryExp = unique_ptr<BaseAST>($3);
     $$ = ast;
@@ -186,7 +186,7 @@ AddExp
     ast->selfMinorType = "1";
     ast->addOperator = "+";
     ast->addExp = unique_ptr<BaseAST>($1);
-    add->mulExp = unique_ptr<BaseAST>($3);
+    ast->mulExp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   | AddExp '-' MulExp {
@@ -194,7 +194,7 @@ AddExp
     ast->selfMinorType = "1";
     ast->addOperator = "-";
     ast->addExp = unique_ptr<BaseAST>($1);
-    add->mulExp = unique_ptr<BaseAST>($3);
+    ast->mulExp = unique_ptr<BaseAST>($3);
     $$ = ast;
   };
 
