@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <map>
 #include "AST.hpp"
 
 using namespace std;
@@ -14,6 +15,9 @@ extern FILE *yyout;
 // 记录当前寄存器使用个数
 int registerCnt = 0;
 int currMaxRegister = -1;
+
+// main函数的符号表
+map<string, int> syntaxTable;
 
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
@@ -29,7 +33,16 @@ void Visit(const koopa_raw_integer_t &integer);
   .text
   .globl main
 main:
-  li a0, 0
+  # 实现 eq 6, 0 的操作, 并把结果存入 t0
+  li    t0, 6
+  xor   t0, t0, x0
+  seqz  t0, t0
+  # 减法
+  sub   t1, x0, t0
+  # 减法
+  sub   t2, x0, t1
+  # 设置返回值并返回
+  mv    a0, t2
   ret
 */
 
@@ -133,7 +146,6 @@ void Visit(const koopa_raw_value_t &value)
 // 访问ret
 void Visit(const koopa_raw_return_t &ret)
 {
-  // cout << " li a0, " << ret.value->kind.data.integer.value << "\n";
   cout << " li a0, " << ret.value->kind.data.integer.value << "\n";
   cout << " ret\n";
 }
@@ -173,7 +185,7 @@ int main(int argc, const char *argv[])
   // // 解析字符串 str, 得到 Koopa IR 程序
   // koopa_program_t program;
   // koopa_error_code_t ret = koopa_parse_from_string(strOrigin.c_str(), &program);
-  // assert(ret == KOOPA_EC_SUCCESS);  // 确保解析时没有出错
+  // assert(ret == KOOPA_EC_SUCCESS); // 确保解析时没有出错
   // // 创建一个 raw program builder, 用来构建 raw program
   // koopa_raw_program_builder_t builder = koopa_new_raw_program_builder();
   // // 将 Koopa IR 程序转换为 raw program
@@ -181,22 +193,17 @@ int main(int argc, const char *argv[])
   // // 释放 Koopa IR 程序占用的内存
   // koopa_delete_program(program);
 
-  // // get output
-  // // lv1, directly output koopa program
+  // directly output koopa program
   if (mode[1] == 'k')
   {
     cout << strOrigin;
   }
-  // // lv2, generate riscv output
-  // // 处理 raw program
+  // // generate riscv output, deal with raw program
   // else if (mode[1] == 'r')
   // {
   //   Visit(raw);
   // }
 
-  // // 处理完成, 释放 raw program builder 占用的内存
-  // // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
-  // // 所以不要在 raw program 处理完毕之前释放 builder
   // koopa_delete_raw_program_builder(builder);
 
   return 0;

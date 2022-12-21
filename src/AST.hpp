@@ -5,9 +5,12 @@
 #include <memory>
 #include <string>
 #include <cstring>
+#include <vector>
+#include <map>
 
 extern int registerCnt;
 extern int currMaxRegister;
+extern std::map<std::string, int> syntaxTable;
 
 class BaseAST
 {
@@ -20,6 +23,12 @@ public:
     virtual std::string ReversalDump(std::string &strOriginal)
     {
         return "";
+    }
+
+    // 计算表达式的值
+    virtual int CalExpressionValue()
+    {
+        return 0;
     }
 };
 
@@ -70,13 +79,58 @@ public:
 class BlockAST : public BaseAST
 {
 public:
-    std::unique_ptr<BaseAST> stmt;
+    std::unique_ptr<BaseAST> blockCombinedItem;
     void Dump(std::string &strOriginal) const override
     {
         strOriginal += "%entry: ";
         strOriginal += "\n";
-        stmt->Dump(strOriginal);
+        blockCombinedItem->Dump(strOriginal);
         strOriginal += "\n";
+    }
+};
+
+class BlockCombinedItemAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> blockItem;
+    std::unique_ptr<BaseAST> blockCombinedItem;
+    std::vector<BaseAST> blockItemsVec;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override 
+    {
+        // BlockItem
+        if (selfMinorType[0] == '0')
+        {
+            blockItem->Dump(strOriginal);
+        }
+        // BlockCombinedItem BlockItem
+        else
+        {
+            blockCombinedItem->Dump(strOriginal);
+            blockItem->Dump(strOriginal);
+        }
+    }
+};
+
+class BlockItemAST : public BaseAST 
+{
+public:
+    std::unique_ptr<BaseAST> decl;
+    std::unique_ptr<BaseAST> stmt;
+    std::vector<BaseAST> blockItemsVec;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override 
+    {
+        // decl
+        if (selfMinorType[0] == '0')
+        {
+            decl->Dump(strOriginal);
+        }
+        // stmt
+        else
+        {
+            stmt->Dump(strOriginal);
+        }
     }
 };
 
@@ -86,10 +140,10 @@ public:
     std::unique_ptr<BaseAST> exp;
     void Dump(std::string &strOriginal) const override
     {
-        // 最后一个level的寄存器
-        std::string lastLevelRegister = exp->ReversalDump(strOriginal);
+        // 最后一个level的寄存器或者数值
+        std::string lastLevelResult = exp->ReversalDump(strOriginal);
         strOriginal += "  ret ";
-        strOriginal += lastLevelRegister;
+        strOriginal += lastLevelResult;
     }
 };
 
@@ -103,6 +157,11 @@ public:
     {
         return lOrExp->ReversalDump(strOriginal);
     }
+    // 计算exp表达式的值，在lv4.1常量赋值中使用
+    int CalExpressionValue() override
+    {
+        return lOrExp->CalExpressionValue();
+    }
 };
 
 class PrimaryExpAST : public BaseAST
@@ -110,6 +169,7 @@ class PrimaryExpAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> exp;
     std::unique_ptr<BaseAST> Number;
+    std::unique_ptr<BaseAST> lVal;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
     std::string ReversalDump(std::string &strOriginal) override
@@ -120,9 +180,32 @@ public:
             return exp->ReversalDump(strOriginal);
         }
         // number
-        else
+        else if (selfMinorType[0] == '1')
         {
             return Number->ReversalDump(strOriginal);
+        }
+        // LVal
+        else 
+        {
+            return lVal->ReversalDump(strOriginal);
+        }
+    }
+    int CalExpressionValue() override
+    {
+        // exp
+        if (selfMinorType[0] == '0')
+        {
+            return exp->CalExpressionValue();
+        }
+        // number
+        else if (selfMinorType[0] == '1')
+        {
+            return Number->CalExpressionValue();
+        }
+        // LVal
+        else 
+        {
+            return lVal->CalExpressionValue();
         }
     }
 };
@@ -136,6 +219,10 @@ public:
     std::string ReversalDump(std::string &strOriginal) override
     {
         return std::to_string(Number);
+    }
+    int CalExpressionValue() override
+    {
+        return Number;
     }
 };
 
@@ -192,6 +279,31 @@ public:
             return "";
         }
     }
+    int CalExpressionValue() override
+    {
+        // PrimaryExp
+        if (selfMinorType[0] == '0')
+        {
+            return primaryExp->CalExpressionValue();
+        }
+        // UnaryOp UnaryExp
+        else
+        {
+            int currOperator = unaryOp->CalExpressionValue();
+            if (currOperator == 0)
+            {
+                return 0 - unaryExp->CalExpressionValue();
+            }
+            else if (currOperator == 1)
+            {
+                return int(!unaryExp->CalExpressionValue());
+            }
+            else
+            {
+                return unaryExp->CalExpressionValue();
+            }
+        }
+    }
 };
 
 class UnaryOpAST : public BaseAST
@@ -204,6 +316,21 @@ public:
     {
         registerCnt += 1;
         return unaryOp;
+    }
+    int CalExpressionValue() override
+    {
+        if (unaryOp[0] == '-')
+        {
+            return 0;
+        }
+        else if (unaryOp[0] == '!')
+        {
+            return 1;
+        }
+        else
+        {
+            return 2;
+        }
     }
 };
 
@@ -252,6 +379,30 @@ public:
             return "%" + currRegister;
         }
     }
+    int CalExpressionValue() override
+    {
+        // UnaryExp
+        if (selfMinorType[0] == '0')
+        {
+            return unaryExp->CalExpressionValue();
+        }
+        // MulExp ('*' | '/' | '%') UnaryExp
+        else
+        {
+            if (mulOperator[0] == '*')
+            {
+                return mulExp->CalExpressionValue() * unaryExp->CalExpressionValue();
+            }
+            else if (mulOperator[0] == '/')
+            {
+                return mulExp->CalExpressionValue() / unaryExp->CalExpressionValue();
+            }
+            else
+            {
+                return mulExp->CalExpressionValue() % unaryExp->CalExpressionValue();
+            }
+        }
+    }
 };
 
 class AddExpAST : public BaseAST
@@ -293,6 +444,26 @@ public:
             tempStr += "\n";
             strOriginal += tempStr;
             return "%" + currRegister;
+        }
+    }
+    int CalExpressionValue() override
+    {
+        // MulExp
+        if (selfMinorType[0] == '0')
+        {
+            return mulExp->CalExpressionValue();
+        }
+        // AddExp ('+' | '-') MulExp
+        else
+        {
+            if (addOperator[0] == '+')
+            {
+                return addExp->CalExpressionValue() + mulExp->CalExpressionValue();
+            }
+            else
+            {
+                return addExp->CalExpressionValue() - mulExp->CalExpressionValue();
+            }
         }
     }
 }; 
@@ -346,6 +517,34 @@ public:
             return "%" + currRegister;
         }
     }
+    int CalExpressionValue() override
+    {
+        // AddExp
+        if (selfMinorType[0] == '0')
+        {
+            return addExp->CalExpressionValue();
+        }
+        // RelExp ("<" | ">" | "<=" | ">=") AddExp
+        else
+        {
+            if (strcmp(compOperator.c_str(), "<") == 0)
+            {
+                return int(relExp->CalExpressionValue() < addExp->CalExpressionValue());
+            }
+            else if (strcmp(compOperator.c_str(), ">") == 0)
+            {
+                return int(relExp->CalExpressionValue() > addExp->CalExpressionValue());
+            }
+            else if (strcmp(compOperator.c_str(), "<=") == 0)
+            {
+                return int(relExp->CalExpressionValue() <= addExp->CalExpressionValue());
+            }
+            else
+            {
+                return int(relExp->CalExpressionValue() >= addExp->CalExpressionValue());
+            }
+        }
+    }
 };
 
 class EqExpAST : public BaseAST
@@ -387,6 +586,26 @@ public:
             tempStr += "\n";
             strOriginal += tempStr;
             return "%" + currRegister;
+        }
+    }
+    int CalExpressionValue() override
+    {
+        // RepExp
+        if (selfMinorType[0] == '0')
+        {
+            return relExp->CalExpressionValue();
+        }
+        // EqExp ("==" | "!=") RelExp;
+        else
+        {
+            if (strcmp(eqOperator.c_str(), "==") == 0)
+            {
+                return int(eqExp->CalExpressionValue() == relExp->CalExpressionValue());
+            }
+            else 
+            {
+                return int(eqExp->CalExpressionValue() != relExp->CalExpressionValue());
+            }
         }
     }
 };
@@ -443,6 +662,19 @@ public:
             return "%" + currRegister;
         }
     }
+    int CalExpressionValue() override
+    {
+        // EqExp
+        if (selfMinorType[0] == '0')
+        {
+            return eqExp->CalExpressionValue();
+        }
+        // LAndExp "&&" EqExp
+        else
+        {
+            return int(lAndExp->CalExpressionValue() && eqExp->CalExpressionValue());
+        }
+    }
 };
 
 class LOrExpAST : public BaseAST
@@ -496,5 +728,147 @@ public:
             strOriginal += tempStr;
             return "%" + currRegister;
         }
+    }
+    int CalExpressionValue() override
+    {
+        // lAndExp
+        if (selfMinorType[0] == '0')
+        {
+            return lAndExp->CalExpressionValue();
+        }
+        // LOrExp "||" LAndExp
+        else
+        {
+            return int(lOrExp->CalExpressionValue() || lAndExp->CalExpressionValue());
+        }
+    }
+};
+
+class DeclAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> constDecl;
+    void Dump(std::string &strOriginal) const override 
+    {
+        constDecl->Dump(strOriginal);
+    }
+};
+
+class ConstDeclAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> bType;
+    std::unique_ptr<BaseAST> constCombinedDef;
+    void Dump(std::string &strOriginal ) const override 
+    {
+        constCombinedDef->Dump(strOriginal);
+    }
+};
+
+class BTypeAST : public BaseAST
+{
+public:
+    std::string bType;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        return bType;
+    }
+};
+
+class ConstDefAST : public BaseAST
+{
+public:
+    std::string ident;
+    std::unique_ptr<BaseAST> constInitVal;
+    void Dump(std::string &strOriginal) const override 
+    {
+        std::string calConstResult = std::to_string(constInitVal->CalExpressionValue());
+        if (syntaxTable.find(calConstResult) == syntaxTable.end())
+        {
+            syntaxTable.insert(std::make_pair(ident, atoi(calConstResult.c_str())));
+        }
+    }
+    int CalExpressionValue() override
+    {
+        return constInitVal->CalExpressionValue();
+    }
+};
+
+class ConstCombinedDefAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> constCombinedDef;
+    std::unique_ptr<BaseAST> constDef;
+    std::vector<BaseAST> constDefVec;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override 
+    {
+        // ConstDef
+        if (selfMinorType[0] == '0')
+        {
+            constDef->Dump(strOriginal);
+        }
+        // ConstCombinedDef ',' ConstDef
+        else
+        {
+            constCombinedDef->Dump(strOriginal);
+            constDef->Dump(strOriginal);
+        }
+    }
+};
+
+class ConstInitValAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> constExp;
+    void Dump(std::string &strOriginal) const override {}
+    int CalExpressionValue() override
+    {
+        return constExp->CalExpressionValue();
+    }
+};
+
+class LValAST : public BaseAST 
+{
+public:
+    std::string ident;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        if (syntaxTable.find(ident) == syntaxTable.end())
+        {
+            return "syntaxTable find ident error!";
+        }
+        else
+        {
+            return std::to_string(syntaxTable.at(ident));
+        }
+    }
+    int CalExpressionValue() override
+    {
+        if (syntaxTable.find(ident) == syntaxTable.end())
+        {
+            return -1;
+        }
+        else
+        {
+            return syntaxTable.at(ident);
+        }
+    }
+};
+
+class ConstExpAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> exp;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override 
+    {
+        return exp->ReversalDump(strOriginal);
+    }
+    int CalExpressionValue() override
+    {
+        return exp->CalExpressionValue();
     }
 };

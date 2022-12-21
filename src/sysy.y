@@ -28,11 +28,11 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN LT GT LE GE EQ NE LAND LOR
+%token INT RETURN LT GT LE GE EQ NE LAND LOR CONST
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp Number UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
+%type <ast_val> FuncDef FuncType Block BlockCombinedItem BlockItem Stmt Exp PrimaryExp Number UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp Decl ConstDecl BType ConstDef ConstCombinedDef ConstInitVal LVal ConstExp
 
 %%
 
@@ -63,12 +63,41 @@ FuncType
   ;
 
 Block
-  : '{' Stmt '}' {
+  : '{' BlockCombinedItem '}' {
     auto ast = new BlockAST();
-    ast->stmt = unique_ptr<BaseAST>($2);
+    ast->blockCombinedItem = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
+
+BlockCombinedItem
+  : BlockItem {
+    auto ast = new BlockCombinedItemAST();
+    ast->selfMinorType = "0";
+    ast->blockItem = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | BlockCombinedItem BlockItem {
+    auto ast = new BlockCombinedItemAST();
+    ast->selfMinorType = "1";
+    ast->blockCombinedItem = unique_ptr<BaseAST>($1);
+    ast->blockItem = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  };
+
+BlockItem
+  : Decl {
+    auto ast = new BlockItemAST();
+    ast->selfMinorType = "0";
+    ast->decl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | Stmt {
+    auto ast = new BlockItemAST();
+    ast->selfMinorType = "1";
+    ast->stmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  };
 
 Stmt
   : RETURN Exp ';' {
@@ -92,11 +121,16 @@ PrimaryExp
     ast->exp = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
-  |
-    Number {
+  | Number {
     auto ast = new PrimaryExpAST();
     ast->selfMinorType = "1";
     ast->Number = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | LVal {
+    auto ast = new PrimaryExpAST();
+    ast->selfMinorType = "2";
+    ast->lVal = unique_ptr<BaseAST>($1);
     $$ = ast;
   };
 
@@ -291,6 +325,72 @@ LOrExp
     ast->lOrOperator = "||";
     ast->lOrExp = unique_ptr<BaseAST>($1);
     ast->lAndExp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+Decl
+  : ConstDecl {
+    auto ast = new DeclAST();
+    ast->constDecl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  };
+
+ConstDecl
+  : CONST BType ConstCombinedDef ';' {
+    auto ast = new ConstDeclAST();
+    ast->bType = unique_ptr<BaseAST>($2);
+    ast->constCombinedDef = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+BType
+  : INT {
+    auto ast = new BTypeAST();
+    ast->bType = "int";
+    $$ = ast;
+  };
+
+ConstDef
+  : IDENT '=' ConstInitVal {
+    auto ast = new ConstDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->constInitVal = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+ConstCombinedDef
+  : ConstDef {
+    auto ast = new ConstCombinedDefAST();
+    ast->selfMinorType = "0";
+    ast->constDef = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ConstCombinedDef ',' ConstDef {
+    auto ast = new ConstCombinedDefAST();
+    ast->selfMinorType = "1";
+    ast->constCombinedDef = unique_ptr<BaseAST>($1);
+    ast->constDef = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+ConstInitVal
+  : ConstExp {
+    auto ast = new ConstInitValAST();
+    ast->constExp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+
+LVal
+  : IDENT {
+    auto ast = new LValAST();
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  };
+
+ConstExp
+  : Exp {
+    auto ast = new ConstExpAST();
+    ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
   };
 
