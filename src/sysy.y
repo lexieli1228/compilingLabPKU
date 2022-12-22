@@ -32,7 +32,14 @@ using namespace std;
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block BlockCombinedItem BlockItem Stmt Exp PrimaryExp Number UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp Decl ConstDecl BType ConstDef ConstCombinedDef ConstInitVal LVal ConstExp
+%type <ast_val> FuncDef FuncType Block BlockCombinedItem 
+%type <ast_val> BlockItem Stmt Exp PrimaryExp 
+%type <ast_val> Number UnaryExp UnaryOp MulExp 
+%type <ast_val> AddExp RelExp EqExp LAndExp 
+%type <ast_val> LOrExp Decl ConstDecl BType 
+%type <ast_val> ConstDef ConstCombinedDef ConstInitVal VarDecl 
+%type <ast_val> VarCombinedDef VarDef InitVal LVal 
+%type <ast_val> ConstExp
 
 %%
 
@@ -100,12 +107,19 @@ BlockItem
   };
 
 Stmt
-  : RETURN Exp ';' {
+  : LVal '=' Exp ';' {
+    auto ast = new StmtAST();
+    ast->lVal = unique_ptr<BaseAST>($1);
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  } 
+  | RETURN Exp ';' {
     auto ast = new StmtAST();
     ast->exp = unique_ptr<BaseAST>($2);
+    ast->selfMinorType = "1";
     $$ = ast;
-  }
-  ;
+  };
 
 Exp
   : LOrExp {
@@ -332,6 +346,13 @@ Decl
   : ConstDecl {
     auto ast = new DeclAST();
     ast->constDecl = unique_ptr<BaseAST>($1);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | VarDecl {
+    auto ast = new DeclAST();
+    ast->varDecl = unique_ptr<BaseAST>($1);
+    ast->selfMinorType = "1";
     $$ = ast;
   };
 
@@ -379,6 +400,51 @@ ConstInitVal
     ast->constExp = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
+
+VarDecl
+  : BType VarCombinedDef ';' {
+    auto ast = new VarDeclAST();
+    ast->bType = unique_ptr<BaseAST>($1);
+    ast->varCombinedDef = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  };
+
+VarCombinedDef
+  : VarDef {
+    auto ast = new VarCombinedDefAST();
+    ast->selfMinorType = "0";
+    ast->varDef = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | VarCombinedDef ',' VarDef {
+    auto ast = new VarCombinedDefAST();
+    ast->selfMinorType = "1";
+    ast->varCombinedDef = unique_ptr<BaseAST>($1);
+    ast->varDef = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+VarDef
+  : IDENT {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | IDENT '=' InitVal {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->initVal = unique_ptr<BaseAST>($3);
+    ast->selfMinorType = "1";
+    $$ = ast;
+  };
+
+InitVal
+  : Exp {
+    auto ast = new InitValAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  };
 
 LVal
   : IDENT {
