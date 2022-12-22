@@ -6,6 +6,7 @@
 #include <string>
 #include <map>
 #include "AST.hpp"
+#include "VariableClass.hpp"
 
 using namespace std;
 
@@ -17,7 +18,7 @@ int registerCnt = 0;
 int currMaxRegister = -1;
 
 // main函数的符号表
-map<string, int> syntaxTable;
+map<string, SyntaxElement> syntaxTable;
 
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
