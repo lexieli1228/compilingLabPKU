@@ -7,10 +7,11 @@
 #include <cstring>
 #include <vector>
 #include <map>
+#include "VariableClass.hpp"
 
 extern int registerCnt;
 extern int currMaxRegister;
-extern std::map<std::string, int> syntaxTable;
+extern std::map<std::string, SyntaxElement> syntaxTable;
 
 class BaseAST
 {
@@ -137,13 +138,43 @@ public:
 class StmtAST : public BaseAST
 {
 public:
+    std::unique_ptr<BaseAST> lVal;
     std::unique_ptr<BaseAST> exp;
+    std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {
-        // 最后一个level的寄存器或者数值
-        std::string lastLevelResult = exp->ReversalDump(strOriginal);
-        strOriginal += "  ret ";
-        strOriginal += lastLevelResult;
+        // LVal "=" Exp ";"
+        if (selfMinorType[0] == '0')
+        {
+            std::string lValIdent = lVal->ReversalDump(strOriginal);
+            int expVal = exp->CalExpressionValue();
+            std::string expRegister = exp->ReversalDump(strOriginal);
+            if (strcmp(lValIdent.c_str(), "error") != 0)
+            {
+                std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(lValIdent);
+                SyntaxElement tempElement = SyntaxElement();
+                tempElement.name = lValIdent;
+                tempElement.isConstant = false;
+                tempElement.isGivenNum = true;
+                tempElement.num = expVal;
+                tempIter->second = tempElement;
+                std::string tempStr = "  store ";
+                tempStr += expRegister;
+                tempStr += ", @";
+                tempStr += lValIdent;
+                tempStr += "\n";
+                strOriginal += tempStr;
+            }
+        }
+        // "return" Exp ";"
+        else
+        {
+            // 最后一个level的寄存器或者数值
+            // 如果是const或者数直接返回结果
+            std::string lastLevelResult = exp->ReversalDump(strOriginal);
+            strOriginal += "  ret ";
+            strOriginal += lastLevelResult;
+        }
     }
 };
 
@@ -187,7 +218,30 @@ public:
         // LVal
         else 
         {
-            return lVal->ReversalDump(strOriginal);
+            std::string lValIdent = lVal->ReversalDump(strOriginal);
+            std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(lValIdent);
+            if (tempIter != syntaxTable.end())
+            {
+                SyntaxElement tempElement = tempIter->second;
+                // int variable, should load it into a register
+                if (tempElement.isConstant == false)
+                {
+                    currMaxRegister += 1;
+                    std::string currRegister = std::to_string(currMaxRegister);
+                    std::string tempStr = "  %";
+                    tempStr += currRegister;
+                    tempStr += " = load @";
+                    tempStr += lValIdent;
+                    tempStr += "\n";
+                    strOriginal += tempStr;
+                    return "%" + currRegister;
+                }
+                else
+                {
+                    return std::to_string(tempElement.num);
+                }
+            }
+            return "error";
         }
     }
     int CalExpressionValue() override
@@ -748,9 +802,18 @@ class DeclAST : public BaseAST
 {
 public:
     std::unique_ptr<BaseAST> constDecl;
+    std::unique_ptr<BaseAST> varDecl;
+    std::string selfMinorType;
     void Dump(std::string &strOriginal) const override 
     {
-        constDecl->Dump(strOriginal);
+        if (selfMinorType[0] == '0')
+        {
+            constDecl->Dump(strOriginal);
+        }
+        else
+        {
+            varDecl->Dump(strOriginal);
+        }
     }
 };
 
@@ -783,10 +846,15 @@ public:
     std::unique_ptr<BaseAST> constInitVal;
     void Dump(std::string &strOriginal) const override 
     {
-        std::string calConstResult = std::to_string(constInitVal->CalExpressionValue());
-        if (syntaxTable.find(calConstResult) == syntaxTable.end())
+        // notice here may change calConstResult to ident!!!
+        if (syntaxTable.find(ident) == syntaxTable.end())
         {
-            syntaxTable.insert(std::make_pair(ident, atoi(calConstResult.c_str())));
+            SyntaxElement tempElement = SyntaxElement();
+            tempElement.name = ident;
+            tempElement.isConstant = true;
+            tempElement.isGivenNum = true;
+            tempElement.num = constInitVal->CalExpressionValue();
+            syntaxTable.insert(std::make_pair(ident, tempElement));
         }
     }
     int CalExpressionValue() override
@@ -829,6 +897,117 @@ public:
     }
 };
 
+class VarDeclAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> bType;
+    std::unique_ptr<BaseAST> varCombinedDef;
+    void Dump(std::string &strOriginal ) const override 
+    {
+        varCombinedDef->Dump(strOriginal);
+    }
+};
+
+class VarCombinedDefAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> varCombinedDef;
+    std::unique_ptr<BaseAST> varDef;
+    std::vector<BaseAST> varDefVec;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override 
+    {
+        // VarDef
+        if (selfMinorType[0] == '0')
+        {
+            varDef->Dump(strOriginal);
+        }
+        // VarCombinedDef ',' VarDef
+        else
+        {
+            varCombinedDef->Dump(strOriginal);
+            varDef->Dump(strOriginal);
+        }
+    }
+};
+
+class VarDefAST : public BaseAST
+{
+public:
+    std::string ident;
+    std::unique_ptr<BaseAST> initVal;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override 
+    {
+        // IDENT
+        if (selfMinorType[0] == '0')
+        {
+            std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(ident);
+            // add a value to the syntax table
+            if (tempIter == syntaxTable.end())
+            {
+                SyntaxElement tempElement = SyntaxElement();
+                tempElement.name = ident;
+                tempElement.isConstant = false;
+                tempElement.isGivenNum = false;
+                tempElement.num = -1;
+                syntaxTable.insert(std::make_pair(ident, tempElement));
+            }
+            strOriginal += "@";
+            strOriginal += ident;
+            strOriginal += " = alloc i32\n";
+        }
+        // IDENT = InitVal
+        else
+        {
+            int calInitResult = initVal->CalExpressionValue();
+            std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(ident);
+            // add a value to the syntaxTable
+            if (tempIter == syntaxTable.end())
+            {
+                SyntaxElement tempElement = SyntaxElement();
+                tempElement.name = ident;
+                tempElement.isConstant = false;
+                tempElement.isGivenNum = true;
+                tempElement.num = calInitResult;
+                syntaxTable.insert(std::make_pair(ident, tempElement));
+                strOriginal += "  @";
+                strOriginal += ident;
+                strOriginal += " = alloc i32\n";
+                strOriginal += "  store ";
+                strOriginal += std::to_string(calInitResult);
+                strOriginal += ", @";
+                strOriginal += ident;
+                strOriginal += "\n";
+            }
+            else
+            {   
+                SyntaxElement tempElement = SyntaxElement();
+                tempElement.name = ident;
+                tempElement.isConstant = false;
+                tempElement.isGivenNum = true;
+                tempElement.num = calInitResult;
+                tempIter->second = tempElement;
+            }
+        }
+    }
+    int CalExpressionValue() override
+    {
+        return initVal->CalExpressionValue();
+    }
+};
+
+class InitValAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> exp;
+    void Dump(std::string &strOriginal) const override {}
+    int CalExpressionValue() override
+    {
+        return exp->CalExpressionValue();
+    }
+};
+
 class LValAST : public BaseAST 
 {
 public:
@@ -836,13 +1015,13 @@ public:
     void Dump(std::string &strOriginal) const override {}
     std::string ReversalDump(std::string &strOriginal) override 
     {
-        if (syntaxTable.find(ident) == syntaxTable.end())
+        if (syntaxTable.find(ident) != syntaxTable.end())
         {
-            return "syntaxTable find ident error!";
+            return ident;
         }
         else
         {
-            return std::to_string(syntaxTable.at(ident));
+            return "error";
         }
     }
     int CalExpressionValue() override
@@ -853,7 +1032,7 @@ public:
         }
         else
         {
-            return syntaxTable.at(ident);
+            return syntaxTable.at(ident).num;
         }
     }
 };
