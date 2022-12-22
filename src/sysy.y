@@ -73,6 +73,12 @@ Block
   : '{' BlockCombinedItem '}' {
     auto ast = new BlockAST();
     ast->blockCombinedItem = unique_ptr<BaseAST>($2);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | '{' '}' {
+    auto ast = new BlockAST();
+    ast->selfMinorType = "1";
     $$ = ast;
   }
   ;

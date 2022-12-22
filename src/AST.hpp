@@ -61,7 +61,10 @@ public:
         func_type->Dump(strOriginal);
         strOriginal += " {";
         strOriginal += "\n";
+        strOriginal += "%entry: ";
+        strOriginal += "\n";
         block->Dump(strOriginal);
+        strOriginal += "\n";
         strOriginal += "}";
     }
 };
@@ -84,21 +87,26 @@ class BlockAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> blockCombinedItem;
     std::map<std::string, SyntaxElement> currSyntaxTable;
+    std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {   
-        // 每次进入一个block 增加一个vector，然后在这个block处理过程中就会用这个最新vec 之前的vec一定对其有
-        currMaxSyntaxVec += 1;
-        syntaxTableVec.push_back(currSyntaxTable);
-        strOriginal += "%entry: ";
-        strOriginal += "\n";
-        blockCombinedItem->Dump(strOriginal);
-        strOriginal += "\n";
-        // erase the syntaxTable for this block when exiting
-        if (syntaxTableVec.size() > 0)
+        if (selfMinorType[0] == '0')
         {
-            syntaxTableVec.erase(syntaxTableVec.begin() + currMaxSyntaxVec);
+            // 每次进入一个block 增加一个vector，然后在这个block处理过程中就会用这个最新vec 之前的vec一定对其有
+            currMaxSyntaxVec += 1;
+            syntaxTableVec.push_back(currSyntaxTable);
+            blockCombinedItem->Dump(strOriginal);
+            // erase the syntaxTable for this block when exiting
+            if (syntaxTableVec.size() > 0)
+            {
+                syntaxTableVec.erase(syntaxTableVec.begin() + currMaxSyntaxVec);
+            }
+            currMaxSyntaxVec -= 1;
         }
-        currMaxSyntaxVec -= 1;
+        else
+        {
+            // do nothing
+        }
     }
 };
 
