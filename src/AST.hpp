@@ -11,7 +11,9 @@
 
 extern int registerCnt;
 extern int currMaxRegister;
-extern std::map<std::string, SyntaxElement> syntaxTable;
+extern int currMaxSyntaxVec;
+extern std::map<std::string, int> syntaxNameCnt;
+extern std::vector<std::map<std::string, SyntaxElement> > syntaxTableVec;
 
 class BaseAST
 {
@@ -81,12 +83,22 @@ class BlockAST : public BaseAST
 {
 public:
     std::unique_ptr<BaseAST> blockCombinedItem;
+    std::map<std::string, SyntaxElement> currSyntaxTable;
     void Dump(std::string &strOriginal) const override
-    {
+    {   
+        // 每次进入一个block 增加一个vector，然后在这个block处理过程中就会用这个最新vec 之前的vec一定对其有
+        currMaxSyntaxVec += 1;
+        syntaxTableVec.push_back(currSyntaxTable);
         strOriginal += "%entry: ";
         strOriginal += "\n";
         blockCombinedItem->Dump(strOriginal);
         strOriginal += "\n";
+        // erase the syntaxTable for this block when exiting
+        if (syntaxTableVec.size() > 0)
+        {
+            syntaxTableVec.erase(syntaxTableVec.begin() + currMaxSyntaxVec);
+        }
+        currMaxSyntaxVec -= 1;
     }
 };
 
@@ -113,12 +125,11 @@ public:
     }
 };
 
-class BlockItemAST : public BaseAST 
+class BlockItemAST : public BaseAST     
 {
 public:
     std::unique_ptr<BaseAST> decl;
     std::unique_ptr<BaseAST> stmt;
-    std::vector<BaseAST> blockItemsVec;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override 
     {
@@ -140,6 +151,7 @@ class StmtAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> lVal;
     std::unique_ptr<BaseAST> exp;
+    std::unique_ptr<BaseAST> block;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {
@@ -151,20 +163,47 @@ public:
             std::string expRegister = exp->ReversalDump(strOriginal);
             if (strcmp(lValIdent.c_str(), "error") != 0)
             {
-                std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(lValIdent);
-                SyntaxElement tempElement = SyntaxElement();
-                tempElement.name = lValIdent;
-                tempElement.isConstant = false;
-                tempElement.isGivenNum = true;
-                tempElement.num = expVal;
-                tempIter->second = tempElement;
-                std::string tempStr = "  store ";
-                tempStr += expRegister;
-                tempStr += ", @";
-                tempStr += lValIdent;
-                tempStr += "\n";
-                strOriginal += tempStr;
+                std::map<std::string, SyntaxElement>::iterator tempIter;
+                for (int i = currMaxSyntaxVec; i >= 0; i --)
+                {
+                    tempIter = syntaxTableVec[i].find(lValIdent);
+                    if (tempIter != syntaxTableVec[i].end())
+                    {
+                        SyntaxElement tempElement = SyntaxElement();
+                        tempIter->second.isGivenNum = true;
+                        tempIter->second.num = expVal;
+                        std::string tempStr = "  store ";
+                        tempStr += expRegister;
+                        tempStr += ", @";
+                        tempStr += tempIter->second.ident;
+                        tempStr += "_";
+                        tempStr += std::to_string(tempIter->second.index);
+                        tempStr += "\n";
+                        strOriginal += tempStr;
+                        break;
+                    }
+                }
             }
+        }
+        // ';'
+        else if (selfMinorType[0] == '1')
+        {
+            // do nothing
+        }
+        // Exp ';'
+        else if (selfMinorType[0] == '2')
+        {
+            std::string tempStr = exp->ReversalDump(strOriginal);
+        }
+        // Block
+        else if (selfMinorType[0] == '3')
+        {
+            block->Dump(strOriginal);
+        }
+        // "return" ';'
+        else if (selfMinorType[0] == '4')
+        {
+            strOriginal += "  ret ";
         }
         // "return" Exp ";"
         else
@@ -219,29 +258,36 @@ public:
         else 
         {
             std::string lValIdent = lVal->ReversalDump(strOriginal);
-            std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(lValIdent);
-            if (tempIter != syntaxTable.end())
+            std::map<std::string, SyntaxElement>::iterator tempIter;
+            for (int i = currMaxSyntaxVec; i >= 0; i --)
             {
-                SyntaxElement tempElement = tempIter->second;
-                // int variable, should load it into a register
-                if (tempElement.isConstant == false)
+                tempIter = syntaxTableVec[i].find(lValIdent);
+                if (tempIter != syntaxTableVec[i].end())
                 {
-                    currMaxRegister += 1;
-                    std::string currRegister = std::to_string(currMaxRegister);
-                    std::string tempStr = "  %";
-                    tempStr += currRegister;
-                    tempStr += " = load @";
-                    tempStr += lValIdent;
-                    tempStr += "\n";
-                    strOriginal += tempStr;
-                    return "%" + currRegister;
-                }
-                else
-                {
-                    return std::to_string(tempElement.num);
+                    SyntaxElement tempElement = tempIter->second;
+                    // int variable, should load it into a register
+                    if (tempElement.isConstant == false)
+                    {
+                        currMaxRegister += 1;
+                        std::string currRegister = std::to_string(currMaxRegister);
+                        std::string tempStr = "  %";
+                        tempStr += currRegister;
+                        tempStr += " = load @";
+                        tempStr += tempIter->second.ident;
+                        tempStr += "_";
+                        tempStr += std::to_string(tempIter->second.index);
+                        tempStr += "\n";
+                        strOriginal += tempStr;
+                        return "%" + currRegister;
+                    }
+                    else
+                    {
+                        return std::to_string(tempElement.num);
+                    }
+                    break;
                 }
             }
-            return "error";
+            return "error in primary exp";
         }
     }
     int CalExpressionValue() override
@@ -846,15 +892,28 @@ public:
     std::unique_ptr<BaseAST> constInitVal;
     void Dump(std::string &strOriginal) const override 
     {
-        // notice here may change calConstResult to ident!!!
-        if (syntaxTable.find(ident) == syntaxTable.end())
+        std::map<std::string, int>::iterator constInitIter = syntaxNameCnt.find(ident);
+        if (constInitIter != syntaxNameCnt.end())
         {
             SyntaxElement tempElement = SyntaxElement();
-            tempElement.name = ident;
+            tempElement.ident = ident;
             tempElement.isConstant = true;
             tempElement.isGivenNum = true;
             tempElement.num = constInitVal->CalExpressionValue();
-            syntaxTable.insert(std::make_pair(ident, tempElement));
+            tempElement.index = constInitIter->second + 1;
+            constInitIter->second += 1;
+            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+        }
+        else
+        {
+            SyntaxElement tempElement = SyntaxElement();
+            tempElement.ident = ident;
+            tempElement.isConstant = true;
+            tempElement.isGivenNum = true;
+            tempElement.num = constInitVal->CalExpressionValue();
+            tempElement.index = 0;
+            syntaxNameCnt.insert(std::make_pair(ident, 0));
+            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
     }
     int CalExpressionValue() override
@@ -942,53 +1001,70 @@ public:
         // IDENT
         if (selfMinorType[0] == '0')
         {
-            std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(ident);
-            // add a value to the syntax table
-            if (tempIter == syntaxTable.end())
+            std::map<std::string, int>::iterator initIter = syntaxNameCnt.find(ident);
+            SyntaxElement tempElement = SyntaxElement();
+            if (initIter != syntaxNameCnt.end())
             {
-                SyntaxElement tempElement = SyntaxElement();
-                tempElement.name = ident;
+                tempElement.ident = ident;
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = false;
-                tempElement.num = -1;
-                syntaxTable.insert(std::make_pair(ident, tempElement));
+                tempElement.index = initIter->second + 1;
+                initIter->second += 1;
+                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+            }
+            else
+            {
+                tempElement.ident = ident;
+                tempElement.isConstant = false;
+                tempElement.isGivenNum = false;
+                tempElement.index = 0;
+                syntaxNameCnt.insert(std::make_pair(ident, 0));
+                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
             strOriginal += "@";
             strOriginal += ident;
+            strOriginal += "_";
+            strOriginal += std::to_string(tempElement.index);
             strOriginal += " = alloc i32\n";
         }
         // IDENT = InitVal
         else
         {
             int calInitResult = initVal->CalExpressionValue();
-            std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTable.find(ident);
-            // add a value to the syntaxTable
-            if (tempIter == syntaxTable.end())
+            std::map<std::string, int>::iterator initIter = syntaxNameCnt.find(ident);
+            SyntaxElement tempElement = SyntaxElement();
+            if (initIter != syntaxNameCnt.end())
             {
-                SyntaxElement tempElement = SyntaxElement();
-                tempElement.name = ident;
+                tempElement.ident = ident;
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = true;
                 tempElement.num = calInitResult;
-                syntaxTable.insert(std::make_pair(ident, tempElement));
-                strOriginal += "  @";
-                strOriginal += ident;
-                strOriginal += " = alloc i32\n";
-                strOriginal += "  store ";
-                strOriginal += std::to_string(calInitResult);
-                strOriginal += ", @";
-                strOriginal += ident;
-                strOriginal += "\n";
+                tempElement.index = initIter->second + 1;
+                initIter->second += 1;
+                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
             else
-            {   
-                SyntaxElement tempElement = SyntaxElement();
-                tempElement.name = ident;
+            {
+                tempElement.ident = ident;
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = true;
                 tempElement.num = calInitResult;
-                tempIter->second = tempElement;
+                tempElement.index = 0;
+                syntaxNameCnt.insert(std::make_pair(ident, 0));
+                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
+            strOriginal += "  @";
+            strOriginal += ident;
+            strOriginal += "_";
+            strOriginal += std::to_string(tempElement.index);
+            strOriginal += " = alloc i32\n";
+            strOriginal += "  store ";
+            strOriginal += std::to_string(calInitResult);
+            strOriginal += ", @";
+            strOriginal += ident;
+            strOriginal += "_";
+            strOriginal += std::to_string(tempElement.index);
+            strOriginal += "\n";
         }
     }
     int CalExpressionValue() override
@@ -1015,25 +1091,33 @@ public:
     void Dump(std::string &strOriginal) const override {}
     std::string ReversalDump(std::string &strOriginal) override 
     {
-        if (syntaxTable.find(ident) != syntaxTable.end())
+        if (syntaxNameCnt.find(ident) == syntaxNameCnt.end())
         {
-            return ident;
+            return "error in lval ast";
         }
         else
         {
-            return "error";
+            return ident;
         }
     }
     int CalExpressionValue() override
     {
-        if (syntaxTable.find(ident) == syntaxTable.end())
+        if (syntaxNameCnt.find(ident) == syntaxNameCnt.end())
         {
             return -1;
         }
         else
         {
-            return syntaxTable.at(ident).num;
+            for (int i = currMaxSyntaxVec; i >= 0; i --)
+            {
+                std::map<std::string, SyntaxElement>::iterator tempElement = syntaxTableVec[i].find(ident);
+                if (tempElement != syntaxTableVec[i].end())
+                {
+                    return tempElement->second.num;
+                }
+            }
         }
+        return -1;
     }
 };
 

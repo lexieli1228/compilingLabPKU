@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <vector>
 #include "AST.hpp"
 #include "VariableClass.hpp"
 
@@ -17,8 +18,12 @@ extern FILE *yyout;
 int registerCnt = 0;
 int currMaxRegister = -1;
 
+// 记录当前符号表的level层数
+int currMaxSyntaxVec = -1;
+
 // main函数的符号表
-map<string, SyntaxElement> syntaxTable;
+map<std::string, int> syntaxNameCnt;
+vector<map<std::string, SyntaxElement> > syntaxTableVec;
 
 extern int yyparse(unique_ptr<BaseAST> &ast);
 

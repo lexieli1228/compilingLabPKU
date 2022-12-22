@@ -114,10 +114,32 @@ Stmt
     ast->selfMinorType = "0";
     $$ = ast;
   } 
+  | ';' {
+    auto ast = new StmtAST();
+    ast->selfMinorType = "1";
+    $$ = ast;
+  }
+  | Exp ';' {
+    auto ast = new StmtAST();
+    ast->selfMinorType = "2";
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | Block {
+    auto ast = new StmtAST();
+    ast->selfMinorType = "3";
+    ast->block = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | RETURN ';' {
+    auto ast = new StmtAST();
+    ast->selfMinorType = "4";
+    $$ = ast;
+  }
   | RETURN Exp ';' {
     auto ast = new StmtAST();
     ast->exp = unique_ptr<BaseAST>($2);
-    ast->selfMinorType = "1";
+    ast->selfMinorType = "5";
     $$ = ast;
   };
 

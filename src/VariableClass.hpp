@@ -8,24 +8,27 @@
 #include <vector>
 #include <map>
 
-// 符号表中的元素
 class SyntaxElement 
 {
 public:
-  std::string name;
+  std::string ident;
   bool isConstant;
   bool isGivenNum;
   int num; 
+  int index;
+  
   SyntaxElement()
   {
-    name = "";
+    ident = "";
     isConstant = false;
     isGivenNum = false;
     num = -1;
+    index = 0;
   }
+  
   bool operator == (const SyntaxElement &obj) const
   {
-    if (name == obj.name)
+    if (ident == obj.ident)
     {
         return true;
     }
