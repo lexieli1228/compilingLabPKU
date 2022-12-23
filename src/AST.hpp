@@ -13,7 +13,8 @@ extern int registerCnt;
 extern int currMaxRegister;
 extern int currMaxSyntaxVec;
 extern std::map<std::string, int> syntaxNameCnt;
-extern std::vector<std::map<std::string, SyntaxElement> > syntaxTableVec;
+extern std::vector<std::map<std::string, SyntaxElement>> syntaxTableVec;
+extern int currThenBlockCnt;
 
 class BaseAST
 {
@@ -89,7 +90,7 @@ public:
     std::map<std::string, SyntaxElement> currSyntaxTable;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
-    {   
+    {
         if (selfMinorType[0] == '0')
         {
             // 每次进入一个block 增加一个vector，然后在这个block处理过程中就会用这个最新vec 之前的vec一定对其有
@@ -117,7 +118,7 @@ public:
     std::unique_ptr<BaseAST> blockCombinedItem;
     std::vector<BaseAST> blockItemsVec;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         // BlockItem
         if (selfMinorType[0] == '0')
@@ -133,13 +134,13 @@ public:
     }
 };
 
-class BlockItemAST : public BaseAST     
+class BlockItemAST : public BaseAST
 {
 public:
     std::unique_ptr<BaseAST> decl;
     std::unique_ptr<BaseAST> stmt;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         // decl
         if (selfMinorType[0] == '0')
@@ -157,9 +158,32 @@ public:
 class StmtAST : public BaseAST
 {
 public:
+    std::unique_ptr<BaseAST> matchedStmt;
+    std::unique_ptr<BaseAST> openStmt;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override
+    {
+        // matched_stmt
+        if (selfMinorType[0] == '0')
+        {
+            matchedStmt->Dump(strOriginal);
+        }
+        // open_stmt
+        else
+        {
+            openStmt->Dump(strOriginal);
+        }
+    }
+};
+
+class OtherStmtAST : public BaseAST
+{
+public:
     std::unique_ptr<BaseAST> lVal;
     std::unique_ptr<BaseAST> exp;
     std::unique_ptr<BaseAST> block;
+    std::unique_ptr<BaseAST> stmt0;
+    std::unique_ptr<BaseAST> stmt1;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {
@@ -172,7 +196,7 @@ public:
             if (strcmp(lValIdent.c_str(), "error") != 0)
             {
                 std::map<std::string, SyntaxElement>::iterator tempIter;
-                for (int i = currMaxSyntaxVec; i >= 0; i --)
+                for (int i = currMaxSyntaxVec; i >= 0; i--)
                 {
                     tempIter = syntaxTableVec[i].find(lValIdent);
                     if (tempIter != syntaxTableVec[i].end())
@@ -212,6 +236,7 @@ public:
         else if (selfMinorType[0] == '4')
         {
             strOriginal += "  ret ";
+            strOriginal += "\n";
         }
         // "return" Exp ";"
         else
@@ -221,7 +246,205 @@ public:
             std::string lastLevelResult = exp->ReversalDump(strOriginal);
             strOriginal += "  ret ";
             strOriginal += lastLevelResult;
+            strOriginal += "\n";
         }
+    }
+};
+
+class MatchedStmtAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> exp;
+    std::unique_ptr<BaseAST> matchedStmt0;
+    std::unique_ptr<BaseAST> matchedStmt1;
+    std::unique_ptr<BaseAST> otherStmt;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override
+    {
+        // if exp then matched_stmt else matched_stmt
+        if (selfMinorType[0] == '0')
+        {
+            std::string expResult = exp->ReversalDump(strOriginal);
+            std::string currRegister;
+            // register
+            if (expResult[0] == '%')
+            {
+                currRegister = expResult;
+            }
+            // a variable
+            else if (syntaxNameCnt.find(expResult) != syntaxNameCnt.end())
+            {
+                for (int i = currMaxSyntaxVec; i >= 0; i--)
+                {
+                    std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTableVec[i].find(expResult);
+                    if (tempIter != syntaxTableVec[i].end())
+                    {
+                        SyntaxElement tempElement = tempIter->second;
+                        if (tempElement.isConstant == false)
+                        {
+                            currMaxRegister += 1;
+                            currRegister = "%" + std::to_string(currMaxRegister);
+                            std::string tempStr = "  ";
+                            tempStr += currRegister;
+                            tempStr += " = load @";
+                            tempStr += tempElement.ident;
+                            tempStr += "_";
+                            tempStr += std::to_string(tempElement.index);
+                            tempStr += "\n";
+                            strOriginal += tempStr;
+                        }
+                        else
+                        {
+                            currRegister = tempElement.num;
+                        }
+                        break;
+                    }
+                }
+            }
+            // a number
+            else
+            {
+                currRegister = expResult;
+            }
+            currThenBlockCnt += 1;
+            int currBlock = currThenBlockCnt;
+
+            strOriginal += "  br ";
+            strOriginal += currRegister;
+            strOriginal += ", %then_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ", %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+            strOriginal += "%then_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ":\n";
+            matchedStmt0->Dump(strOriginal);
+            strOriginal += "  jump %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+
+            strOriginal += "%else_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ":\n";
+            matchedStmt1->Dump(strOriginal);
+            strOriginal += "  jump %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+
+            strOriginal += "%end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ":\n";
+        }
+        // other
+        else
+        {
+            otherStmt->Dump(strOriginal);
+        }
+    }
+};
+
+class OpenStmtAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> exp;
+    std::unique_ptr<BaseAST> stmt;
+    std::unique_ptr<BaseAST> matchedStmt;
+    std::unique_ptr<BaseAST> openStmt;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override
+    {
+        std::string expResult = exp->ReversalDump(strOriginal);
+        std::string currRegister;
+        // register
+        if (expResult[0] == '%')
+        {
+            currRegister = expResult;
+        }
+        // a variable
+        else if (syntaxNameCnt.find(expResult) != syntaxNameCnt.end())
+        {
+            for (int i = currMaxSyntaxVec; i >= 0; i--)
+            {
+                std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTableVec[i].find(expResult);
+                if (tempIter != syntaxTableVec[i].end())
+                {
+                    SyntaxElement tempElement = tempIter->second;
+                    if (tempElement.isConstant == false)
+                    {
+                        currMaxRegister += 1;
+                        currRegister = "%" + std::to_string(currMaxRegister);
+                        std::string tempStr = "  ";
+                        tempStr += currRegister;
+                        tempStr += " = load @";
+                        tempStr += tempElement.ident;
+                        tempStr += "_";
+                        tempStr += std::to_string(tempElement.index);
+                        tempStr += "\n";
+                        strOriginal += tempStr;
+                    }
+                    else
+                    {
+                        currRegister = tempElement.num;
+                    }
+                    break;
+                }
+            }
+        }
+        // a number
+        else
+        {
+            currRegister = expResult;
+        }
+        currThenBlockCnt += 1;
+        int currBlock = currThenBlockCnt;
+        // if exp then stmt
+        if (selfMinorType[0] == '0')
+        {
+            strOriginal += "  br ";
+            strOriginal += currRegister;
+            strOriginal += ", %then_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ", %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+            strOriginal += "%then_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ":\n";
+            stmt->Dump(strOriginal);
+            strOriginal += "  jump %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+        }
+        // if exp then matched_stmt else open_stmt
+        else
+        {
+            strOriginal += "  br ";
+            strOriginal += currRegister;
+            strOriginal += ", %then_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ", %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+            strOriginal += "%then_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ":\n";
+            matchedStmt->Dump(strOriginal);
+            strOriginal += "  jump %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+
+            strOriginal += "%else_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += ":\n";
+            openStmt->Dump(strOriginal);
+            strOriginal += "  jump %end_";
+            strOriginal += std::to_string(currBlock);
+            strOriginal += "\n";
+        }
+        strOriginal += "%end_";
+        strOriginal += std::to_string(currBlock);
+        strOriginal += ":\n";
     }
 };
 
@@ -263,11 +486,11 @@ public:
             return Number->ReversalDump(strOriginal);
         }
         // LVal
-        else 
+        else
         {
             std::string lValIdent = lVal->ReversalDump(strOriginal);
             std::map<std::string, SyntaxElement>::iterator tempIter;
-            for (int i = currMaxSyntaxVec; i >= 0; i --)
+            for (int i = currMaxSyntaxVec; i >= 0; i--)
             {
                 tempIter = syntaxTableVec[i].find(lValIdent);
                 if (tempIter != syntaxTableVec[i].end())
@@ -311,7 +534,7 @@ public:
             return Number->CalExpressionValue();
         }
         // LVal
-        else 
+        else
         {
             return lVal->CalExpressionValue();
         }
@@ -450,7 +673,7 @@ public:
     std::string mulOperator;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         // UnaryExp
         if (selfMinorType[0] == '0')
@@ -460,10 +683,10 @@ public:
         // MulExp ('*' | '/' | '%') UnaryExp
         else
         {
-            registerCnt ++;
+            registerCnt++;
             std::string mulLastRegister = mulExp->ReversalDump(strOriginal);
             std::string unaryLastRegister = unaryExp->ReversalDump(strOriginal);
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister = std::to_string(currMaxRegister);
             std::string tempStr = "  %";
             tempStr += currRegister;
@@ -521,7 +744,7 @@ public:
     std::string addOperator;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         // MulExp
         if (selfMinorType[0] == '0')
@@ -531,10 +754,10 @@ public:
         // AddExp ('+' | '-') MulExp
         else
         {
-            registerCnt ++;
+            registerCnt++;
             std::string addLastRegister = addExp->ReversalDump(strOriginal);
             std::string mulLastRegister = mulExp->ReversalDump(strOriginal);
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister = std::to_string(currMaxRegister);
             std::string tempStr = "  %";
             tempStr += currRegister;
@@ -574,7 +797,7 @@ public:
             }
         }
     }
-}; 
+};
 
 class RelExpAST : public BaseAST
 {
@@ -584,7 +807,7 @@ public:
     std::string compOperator;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         // AddExp
         if (selfMinorType[0] == '0')
@@ -594,10 +817,10 @@ public:
         // RelExp ("<" | ">" | "<=" | ">=") AddExp
         else
         {
-            registerCnt ++;
+            registerCnt++;
             std::string relLastRegister = relExp->ReversalDump(strOriginal);
             std::string addLastRegister = addExp->ReversalDump(strOriginal);
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister = std::to_string(currMaxRegister);
             std::string tempStr = "  %";
             tempStr += currRegister;
@@ -663,7 +886,7 @@ public:
     std::string eqOperator;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         // RepExp
         if (selfMinorType[0] == '0')
@@ -673,10 +896,10 @@ public:
         // EqExp ("==" | "!=") RelExp;
         else
         {
-            registerCnt ++;
+            registerCnt++;
             std::string eqLastRegister = eqExp->ReversalDump(strOriginal);
             std::string relLastRegister = relExp->ReversalDump(strOriginal);
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister = std::to_string(currMaxRegister);
             std::string tempStr = "  %";
             tempStr += currRegister;
@@ -710,7 +933,7 @@ public:
             {
                 return int(eqExp->CalExpressionValue() == relExp->CalExpressionValue());
             }
-            else 
+            else
             {
                 return int(eqExp->CalExpressionValue() != relExp->CalExpressionValue());
             }
@@ -726,7 +949,7 @@ public:
     std::string lAndOperator;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         // EqExp
         if (selfMinorType[0] == '0')
@@ -736,12 +959,12 @@ public:
         // LAndExp "&&" EqExp
         else
         {
-            registerCnt ++;
+            registerCnt++;
             std::string lAndLastRegister = lAndExp->ReversalDump(strOriginal);
             std::string eqLastRegister = eqExp->ReversalDump(strOriginal);
 
             // curr_0 = ne lAndExp, 0
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister_0 = std::to_string(currMaxRegister);
             std::string tempStr = "  %";
             tempStr += currRegister_0;
@@ -749,7 +972,7 @@ public:
             tempStr += lAndLastRegister;
             tempStr += ", 0\n";
             // curr_1 = ne eqExp, 0
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister_1 = std::to_string(currMaxRegister);
             tempStr += "  %";
             tempStr += currRegister_1;
@@ -757,7 +980,7 @@ public:
             tempStr += eqLastRegister;
             tempStr += ", 0\n";
             // curr_2 = and curr_0, curr_1
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister = std::to_string(currMaxRegister);
             tempStr += "  %";
             tempStr += currRegister;
@@ -793,7 +1016,7 @@ public:
     std::string lOrOperator;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         // lAndExp
         if (selfMinorType[0] == '0')
@@ -803,12 +1026,12 @@ public:
         // LOrExp "||" LAndExp
         else
         {
-            registerCnt ++;
+            registerCnt++;
             std::string lOrLastRegister = lOrExp->ReversalDump(strOriginal);
             std::string lAndLastRegister = lAndExp->ReversalDump(strOriginal);
 
             // curr_0 = ne lOrExp, 0
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister_0 = std::to_string(currMaxRegister);
             std::string tempStr = "  %";
             tempStr += currRegister_0;
@@ -816,7 +1039,7 @@ public:
             tempStr += lOrLastRegister;
             tempStr += ", 0\n";
             // curr_1 = ne LAndExp, 0
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister_1 = std::to_string(currMaxRegister);
             tempStr += "  %";
             tempStr += currRegister_1;
@@ -824,7 +1047,7 @@ public:
             tempStr += lAndLastRegister;
             tempStr += ", 0\n";
             // curr_2 = or curr_0, curr_1
-            currMaxRegister ++;
+            currMaxRegister++;
             std::string currRegister = std::to_string(currMaxRegister);
             tempStr += "  %";
             tempStr += currRegister;
@@ -858,7 +1081,7 @@ public:
     std::unique_ptr<BaseAST> constDecl;
     std::unique_ptr<BaseAST> varDecl;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         if (selfMinorType[0] == '0')
         {
@@ -876,7 +1099,7 @@ class ConstDeclAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> bType;
     std::unique_ptr<BaseAST> constCombinedDef;
-    void Dump(std::string &strOriginal ) const override 
+    void Dump(std::string &strOriginal) const override
     {
         constCombinedDef->Dump(strOriginal);
     }
@@ -887,7 +1110,7 @@ class BTypeAST : public BaseAST
 public:
     std::string bType;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         return bType;
     }
@@ -898,7 +1121,7 @@ class ConstDefAST : public BaseAST
 public:
     std::string ident;
     std::unique_ptr<BaseAST> constInitVal;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         std::map<std::string, int>::iterator constInitIter = syntaxNameCnt.find(ident);
         if (constInitIter != syntaxNameCnt.end())
@@ -937,7 +1160,7 @@ public:
     std::unique_ptr<BaseAST> constDef;
     std::vector<BaseAST> constDefVec;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         // ConstDef
         if (selfMinorType[0] == '0')
@@ -969,7 +1192,7 @@ class VarDeclAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> bType;
     std::unique_ptr<BaseAST> varCombinedDef;
-    void Dump(std::string &strOriginal ) const override 
+    void Dump(std::string &strOriginal) const override
     {
         varCombinedDef->Dump(strOriginal);
     }
@@ -982,7 +1205,7 @@ public:
     std::unique_ptr<BaseAST> varDef;
     std::vector<BaseAST> varDefVec;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         // VarDef
         if (selfMinorType[0] == '0')
@@ -1004,7 +1227,7 @@ public:
     std::string ident;
     std::unique_ptr<BaseAST> initVal;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         // IDENT
         if (selfMinorType[0] == '0')
@@ -1092,12 +1315,12 @@ public:
     }
 };
 
-class LValAST : public BaseAST 
+class LValAST : public BaseAST
 {
 public:
     std::string ident;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         if (syntaxNameCnt.find(ident) == syntaxNameCnt.end())
         {
@@ -1116,7 +1339,7 @@ public:
         }
         else
         {
-            for (int i = currMaxSyntaxVec; i >= 0; i --)
+            for (int i = currMaxSyntaxVec; i >= 0; i--)
             {
                 std::map<std::string, SyntaxElement>::iterator tempElement = syntaxTableVec[i].find(ident);
                 if (tempElement != syntaxTableVec[i].end())
@@ -1134,7 +1357,7 @@ class ConstExpAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> exp;
     void Dump(std::string &strOriginal) const override {}
-    std::string ReversalDump(std::string &strOriginal) override 
+    std::string ReversalDump(std::string &strOriginal) override
     {
         return exp->ReversalDump(strOriginal);
     }

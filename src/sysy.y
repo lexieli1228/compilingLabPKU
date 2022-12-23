@@ -28,12 +28,12 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN LT GT LE GE EQ NE LAND LOR CONST
+%token INT RETURN IF ELSE LT GT LE GE EQ NE LAND LOR CONST
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
 %type <ast_val> FuncDef FuncType Block BlockCombinedItem 
-%type <ast_val> BlockItem Stmt Exp PrimaryExp 
+%type <ast_val> BlockItem Stmt OtherStmt MatchedStmt OpenStmt Exp PrimaryExp 
 %type <ast_val> Number UnaryExp UnaryOp MulExp 
 %type <ast_val> AddExp RelExp EqExp LAndExp 
 %type <ast_val> LOrExp Decl ConstDecl BType 
@@ -113,41 +113,88 @@ BlockItem
   };
 
 Stmt
-  : LVal '=' Exp ';' {
+  : MatchedStmt {
     auto ast = new StmtAST();
+    ast->selfMinorType = "0";
+    ast->matchedStmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | OpenStmt {
+    auto ast = new StmtAST();
+    ast->selfMinorType = "1";
+    ast->openStmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  };
+
+OtherStmt
+  : LVal '=' Exp ';' {
+    auto ast = new OtherStmtAST();
     ast->lVal = unique_ptr<BaseAST>($1);
     ast->exp = unique_ptr<BaseAST>($3);
     ast->selfMinorType = "0";
     $$ = ast;
   } 
   | ';' {
-    auto ast = new StmtAST();
+    auto ast = new OtherStmtAST();
     ast->selfMinorType = "1";
     $$ = ast;
   }
   | Exp ';' {
-    auto ast = new StmtAST();
+    auto ast = new OtherStmtAST();
     ast->selfMinorType = "2";
     ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | Block {
-    auto ast = new StmtAST();
+    auto ast = new OtherStmtAST();
     ast->selfMinorType = "3";
     ast->block = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | RETURN ';' {
-    auto ast = new StmtAST();
+    auto ast = new OtherStmtAST();
     ast->selfMinorType = "4";
     $$ = ast;
   }
   | RETURN Exp ';' {
-    auto ast = new StmtAST();
+    auto ast = new OtherStmtAST();
     ast->exp = unique_ptr<BaseAST>($2);
     ast->selfMinorType = "5";
     $$ = ast;
   };
+
+MatchedStmt
+  : IF '(' Exp ')' MatchedStmt ELSE MatchedStmt {
+    auto ast = new MatchedStmtAST();
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->matchedStmt0 = unique_ptr<BaseAST>($5);
+    ast->matchedStmt1 = unique_ptr<BaseAST>($7);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | OtherStmt {
+    auto ast = new MatchedStmtAST();
+    ast->otherStmt = unique_ptr<BaseAST>($1);
+    ast->selfMinorType = "1";
+    $$ = ast;
+  };
+
+OpenStmt
+  : IF '(' Exp ')' Stmt {
+    auto ast = new OpenStmtAST();
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->stmt = unique_ptr<BaseAST>($5);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | IF '(' Exp ')' MatchedStmt ELSE OpenStmt {
+    auto ast = new OpenStmtAST();
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->matchedStmt = unique_ptr<BaseAST>($5);
+    ast->openStmt = unique_ptr<BaseAST>($7);
+    ast->selfMinorType = "1";
+    $$ = ast;
+  }
 
 Exp
   : LOrExp {
