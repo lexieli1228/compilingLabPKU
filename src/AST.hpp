@@ -65,7 +65,7 @@ public:
         strOriginal += "%entry: ";
         strOriginal += "\n";
         block->Dump(strOriginal);
-        strOriginal += "\n";
+        // strOriginal += "\n";
         strOriginal += "}";
     }
 };
@@ -235,8 +235,7 @@ public:
         // "return" ';'
         else if (selfMinorType[0] == '4')
         {
-            strOriginal += "  ret ";
-            strOriginal += "\n";
+            strOriginal += "  ret\n";
         }
         // "return" Exp ";"
         else
