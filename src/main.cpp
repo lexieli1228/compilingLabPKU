@@ -24,6 +24,12 @@ int currMaxSyntaxVec = -1;
 // 当前If条件语句中then block的数又多少
 int currThenBlockCnt = -1;
 
+// 当前block中有没有return
+int currRetFlag = 0;
+
+// 因为return多分割了多少个block
+int currAfterRetNum = -1;
+
 // main函数的符号表
 map<std::string, int> syntaxNameCnt;
 vector<map<std::string, SyntaxElement> > syntaxTableVec;

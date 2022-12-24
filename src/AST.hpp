@@ -15,6 +15,8 @@ extern int currMaxSyntaxVec;
 extern std::map<std::string, int> syntaxNameCnt;
 extern std::vector<std::map<std::string, SyntaxElement>> syntaxTableVec;
 extern int currThenBlockCnt;
+extern int currRetFlag;
+extern int currAfterRetNum;
 
 class BaseAST
 {
@@ -235,6 +237,14 @@ public:
         // "return" ';'
         else if (selfMinorType[0] == '4')
         {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 1;
             strOriginal += "  ret\n";
         }
         // "return" Exp ";"
@@ -242,6 +252,14 @@ public:
         {
             // 最后一个level的寄存器或者数值
             // 如果是const或者数直接返回结果
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 1;
             std::string lastLevelResult = exp->ReversalDump(strOriginal);
             strOriginal += "  ret ";
             strOriginal += lastLevelResult;
@@ -312,13 +330,21 @@ public:
             strOriginal += currRegister;
             strOriginal += ", %then_";
             strOriginal += std::to_string(currBlock);
-            strOriginal += ", %end_";
+            strOriginal += ", %else_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
             strOriginal += "%then_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
+            currRetFlag = 0;
             matchedStmt0->Dump(strOriginal);
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
@@ -326,7 +352,15 @@ public:
             strOriginal += "%else_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
+            currRetFlag = 0;
             matchedStmt1->Dump(strOriginal);
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
@@ -334,6 +368,7 @@ public:
             strOriginal += "%end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
+            currRetFlag = 0;
         }
         // other
         else
@@ -410,10 +445,19 @@ public:
             strOriginal += "%then_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
+            currRetFlag = 0;
             stmt->Dump(strOriginal);
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
+            currRetFlag = 1;
         }
         // if exp then matched_stmt else open_stmt
         else
@@ -422,28 +466,48 @@ public:
             strOriginal += currRegister;
             strOriginal += ", %then_";
             strOriginal += std::to_string(currBlock);
-            strOriginal += ", %end_";
+            strOriginal += ", %else_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
             strOriginal += "%then_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
+            currRetFlag = 0;
             matchedStmt->Dump(strOriginal);
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
+            currRetFlag = 1;
 
             strOriginal += "%else_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
+
+            currRetFlag = 0;
             openStmt->Dump(strOriginal);
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
+            currRetFlag = 1;
         }
         strOriginal += "%end_";
         strOriginal += std::to_string(currBlock);
         strOriginal += ":\n";
+        currRetFlag = 0;
     }
 };
 
