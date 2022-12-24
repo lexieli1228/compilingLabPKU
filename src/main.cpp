@@ -30,6 +30,9 @@ int currRetFlag = 0;
 // 因为return多分割了多少个block
 int currAfterRetNum = -1;
 
+// 分割了多少while entry和body
+int currWhileNum = -1;
+
 // main函数的符号表
 map<std::string, int> syntaxNameCnt;
 vector<map<std::string, SyntaxElement> > syntaxTableVec;

@@ -17,6 +17,7 @@ extern std::vector<std::map<std::string, SyntaxElement>> syntaxTableVec;
 extern int currThenBlockCnt;
 extern int currRetFlag;
 extern int currAfterRetNum;
+extern int currWhileNum;
 
 class BaseAST
 {
@@ -184,8 +185,7 @@ public:
     std::unique_ptr<BaseAST> lVal;
     std::unique_ptr<BaseAST> exp;
     std::unique_ptr<BaseAST> block;
-    std::unique_ptr<BaseAST> stmt0;
-    std::unique_ptr<BaseAST> stmt1;
+    std::unique_ptr<BaseAST> stmt;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {
@@ -234,8 +234,45 @@ public:
         {
             block->Dump(strOriginal);
         }
-        // "return" ';'
+        // while '(' Exp ')' Stmt
         else if (selfMinorType[0] == '4')
+        {
+            currWhileNum += 1;
+            int currWhileBlock = currWhileNum;
+            strOriginal += "  jump %while_entry_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += "\n";
+            strOriginal += "%while_entry_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += ":\n";
+            std::string expRegister = exp->ReversalDump(strOriginal);
+            strOriginal += "  br ";
+            strOriginal += expRegister;
+            strOriginal += ", %while_body_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += ", %end_while_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += "\n";
+            strOriginal += "%while_body_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += ":\n";
+            stmt->Dump(strOriginal);
+            if (currRetFlag != 0)
+            {
+                strOriginal += "%afterwhileret_";
+                strOriginal += std::to_string(currWhileBlock);
+                strOriginal += ":\n";
+                currRetFlag = 0;
+            }
+            strOriginal += "  jump %while_entry_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += "\n";
+            strOriginal += "%end_while_";
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += ":\n";
+        }
+        // "return" ';'
+        else if (selfMinorType[0] == '5')
         {
             if (currRetFlag != 0)
             {
@@ -453,6 +490,7 @@ public:
                 strOriginal += "%afterret_";
                 strOriginal += std::to_string(currAfterRetNum);
                 strOriginal += ":\n";
+                currRetFlag = 0;
             }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
