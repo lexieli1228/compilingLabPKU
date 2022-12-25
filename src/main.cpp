@@ -33,6 +33,9 @@ int currAfterRetNum = -1;
 // 分割了多少while entry和body
 int currWhileNum = -1;
 
+// 当前工作的是哪个while层级
+int currLayerWhileNum = -1;
+
 // current while content;
 int currWhileContentFlag = 0;
 

@@ -19,6 +19,7 @@ extern int currRetFlag;
 extern int currAfterRetNum;
 extern int currWhileNum;
 extern int currWhileContentFlag;
+extern int currLayerWhileNum;
 
 class BaseAST
 {
@@ -69,7 +70,7 @@ public:
         strOriginal += "%entry: ";
         strOriginal += "\n";
         block->Dump(strOriginal);
-        // strOriginal += "\n";
+        strOriginal += "\n";
         strOriginal += "}";
     }
 };
@@ -232,7 +233,7 @@ public:
         // ';'
         else if (selfMinorType[0] == '1')
         {
-            currWhileContentFlag = 0;
+            currWhileContentFlag |= 0;
             // do nothing
         }
         // Exp ';'
@@ -274,7 +275,8 @@ public:
             }
             currRetFlag = 0;
             currWhileNum += 1;
-            int currWhileBlock = currWhileNum;
+            currLayerWhileNum = currWhileNum;
+            int currWhileBlock = currLayerWhileNum;
             strOriginal += "  jump %while_entry_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += "\n";
@@ -292,7 +294,8 @@ public:
             strOriginal += "%while_body_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
-            currWhileContentFlag = 1;
+
+            currWhileContentFlag = 0;
             stmt->Dump(strOriginal);
             if (currRetFlag != 0)
             {
@@ -318,6 +321,7 @@ public:
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
             currRetFlag = 0;
+            currLayerWhileNum -= 1;
         }
         // break ;
         else if (selfMinorType[0] == '5')
@@ -330,9 +334,8 @@ public:
                 strOriginal += std::to_string(currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 0;
             strOriginal += "  jump %end_while_";
-            int currWhileBlock = currWhileNum;
+            int currWhileBlock = currLayerWhileNum;
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += "\n";
             currRetFlag = 1;
@@ -350,7 +353,7 @@ public:
             }
             currRetFlag = 0;
             strOriginal += "  jump %while_entry_";
-            int currWhileBlock = currWhileNum;
+            int currWhileBlock = currLayerWhileNum;
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += "\n";
             currRetFlag = 1;
@@ -404,6 +407,7 @@ public:
         // if exp then matched_stmt else matched_stmt
         if (selfMinorType[0] == '0')
         {
+            currWhileContentFlag = 1;
             std::string expResult = exp->ReversalDump(strOriginal);
             std::string currRegister;
             // register
@@ -513,6 +517,7 @@ public:
     {
         std::string expResult = exp->ReversalDump(strOriginal);
         std::string currRegister;
+        currWhileContentFlag = 1;
         // register
         if (expResult[0] == '%')
         {
