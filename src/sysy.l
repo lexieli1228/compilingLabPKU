@@ -35,6 +35,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 {LinesComments} { /* 忽略, 不做任何操作 */ }
 
 "int"           { return INT; }
+"void"          { return VOID; }
 "return"        { return RETURN; }
 "if"            { return IF; }
 "else"          { return ELSE; }

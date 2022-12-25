@@ -28,11 +28,11 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN IF ELSE WHILE BREAK CONTINUE LT GT LE GE EQ NE LAND LOR CONST
+%token INT VOID RETURN IF ELSE WHILE BREAK CONTINUE LT GT LE GE EQ NE LAND LOR CONST
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block BlockCombinedItem 
+%type <ast_val> CombCompUnit FuncDef FuncType FuncFParams FuncFParam FuncRParams Block BlockCombinedItem 
 %type <ast_val> BlockItem Stmt OtherStmt MatchedStmt OpenStmt Exp PrimaryExp 
 %type <ast_val> Number UnaryExp UnaryOp MulExp 
 %type <ast_val> AddExp RelExp EqExp LAndExp 
@@ -44,12 +44,26 @@ using namespace std;
 %%
 
 CompUnit
-  : FuncDef {
+  : CombCompUnit {
     auto comp_unit = make_unique<CompUnitAST>();
-    comp_unit->func_def = unique_ptr<BaseAST>($1);
+    comp_unit->combCompUnit = unique_ptr<BaseAST>($1);
     ast = move(comp_unit);
+  };
+
+CombCompUnit  
+  : FuncDef {
+    auto ast = new CombCompUnitAST();
+    ast->selfMinorType = "0";
+    ast->func_def = unique_ptr<BaseAST>($1);
+    $$ = ast;
   }
-  ;
+  | CombCompUnit FuncDef {
+    auto ast = new CombCompUnitAST();
+    ast->selfMinorType = "1";
+    ast->combCompUnit = unique_ptr<BaseAST>($1);
+    ast->func_def = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  };
 
 FuncDef
   : FuncType IDENT '(' ')' Block {
@@ -57,6 +71,16 @@ FuncDef
     ast->func_type = unique_ptr<BaseAST>($1);
     ast->ident = *unique_ptr<string>($2);
     ast->block = unique_ptr<BaseAST>($5);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | FuncType IDENT '(' FuncFParams ')' Block  {
+    auto ast = new FuncDefAST();
+    ast->func_type = unique_ptr<BaseAST>($1);
+    ast->ident = *unique_ptr<string>($2);
+    ast->funcFParams = unique_ptr<BaseAST>($4);
+    ast->block = unique_ptr<BaseAST>($6);
+    ast->selfMinorType = "1";
     $$ = ast;
   }
   ;
@@ -67,7 +91,35 @@ FuncType
     ast->funcType = "int";
     $$ = ast;
   }
+  | VOID {
+    auto ast = new FuncTypeAST();
+    ast->funcType = "void";
+    $$ = ast;
+  }
   ;
+
+FuncFParam
+  : BType IDENT {
+    auto ast = new FuncFParamAST();
+    ast->bType = unique_ptr<BaseAST>($1);
+    ast->ident = *unique_ptr<string>($2);
+    $$ = ast;
+  };
+
+FuncFParams
+  : FuncFParam {
+    auto ast = new FuncFParamsAST();
+    ast->selfMinorType = "0";
+    ast->funcFParam = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | FuncFParams ',' FuncFParam {
+    auto ast = new FuncFParamsAST();
+    ast->selfMinorType = "1";
+    ast->funcFParams = unique_ptr<BaseAST>($1);
+    ast->funcFParam = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
 
 Block
   : '{' BlockCombinedItem '}' {
@@ -254,12 +306,39 @@ UnaryExp
     ast->primaryExp = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
-  |
-    UnaryOp UnaryExp {
+  | UnaryOp UnaryExp {
     auto ast = new UnaryExpAST();
     ast->selfMinorType = "1";
     ast->unaryOp = unique_ptr<BaseAST>($1);
     ast->unaryExp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | IDENT '(' ')' {
+    auto ast = new UnaryExpAST();
+    ast->selfMinorType = "2";
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  }
+  | IDENT '(' FuncRParams ')' {
+    auto ast = new UnaryExpAST();
+    ast->selfMinorType = "3";
+    ast->ident = *unique_ptr<string>($1);
+    ast->funcRParams = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  };
+
+FuncRParams
+  : Exp {
+    auto ast = new FuncRParamsAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    ast->selfMinorType = "0";
+    $$ = ast;
+  }
+  | FuncRParams ',' Exp {
+    auto ast = new FuncRParamsAST();
+    ast->funcRParams = unique_ptr<BaseAST>($1);
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->selfMinorType = "1";
     $$ = ast;
   };
 

@@ -44,11 +44,30 @@ public:
 class CompUnitAST : public BaseAST
 {
 public:
-    std::unique_ptr<BaseAST> func_def;
-
+    std::unique_ptr<BaseAST> combCompUnit;
     void Dump(std::string &strOriginal) const override
     {
-        func_def->Dump(strOriginal);
+        combCompUnit->Dump(strOriginal);
+    }
+};
+
+class CombCompUnitAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> func_def;
+    std::unique_ptr<BaseAST> combCompUnit;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override
+    {
+        if (selfMinorType[0] == '0')
+        {
+            func_def->Dump(strOriginal);
+        }
+        else
+        {
+            combCompUnit->Dump(strOriginal);
+            func_def->Dump(strOriginal);
+        }
     }
 };
 
@@ -57,21 +76,31 @@ class FuncDefAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> func_type;
     std::string ident;
+    std::unique_ptr<BaseAST> funcFParams;
     std::unique_ptr<BaseAST> block;
-
+    std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {
-        strOriginal += "fun @";
-        strOriginal += ident;
-        strOriginal += "(): ";
-        func_type->Dump(strOriginal);
-        strOriginal += " {";
-        strOriginal += "\n";
-        strOriginal += "%entry: ";
-        strOriginal += "\n";
-        block->Dump(strOriginal);
-        strOriginal += "\n";
-        strOriginal += "}";
+        // FuncType IDENT '(' ')' Block
+        if (selfMinorType[0] == '0')
+        {
+            strOriginal += "fun @";
+            strOriginal += ident;
+            strOriginal += "(): ";
+            func_type->Dump(strOriginal);
+            strOriginal += " {";
+            strOriginal += "\n";
+            strOriginal += "%entry: ";
+            strOriginal += "\n";
+            block->Dump(strOriginal);
+            strOriginal += "\n";
+            strOriginal += "}";
+        }
+        // FuncType IDENT '(' FuncFParams ')' Block
+        else
+        {
+
+        }
     }
 };
 
@@ -84,6 +113,43 @@ public:
         if (funcType == "int")
         {
             strOriginal += "i32";
+        }
+        else if (funcType == "void")
+        {
+            // do nothing and add nothing
+        }
+    }
+};
+
+class FuncFParamAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> bType;
+    std::string ident;
+    void Dump(std::string &strOriginal) const override
+    {
+        // do dump thing
+    }
+};
+
+class FuncFParamsAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> funcFParam;
+    std::unique_ptr<BaseAST> funcFParams;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override
+    {
+        // FuncFParam
+        if (selfMinorType[0] == '0')
+        {
+            funcFParam->Dump(strOriginal);
+        }
+        //  FuncFParams ',' FuncFParam
+        else
+        {
+            funcFParams->Dump(strOriginal);
+            funcFParam->Dump(strOriginal);
         }
     }
 };
@@ -755,6 +821,8 @@ public:
     std::unique_ptr<BaseAST> primaryExp;
     std::unique_ptr<BaseAST> unaryOp;
     std::unique_ptr<BaseAST> unaryExp;
+    std::string ident;
+    std::unique_ptr<BaseAST> funcRParams;
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override {}
     // 返回一个数字或者寄存器标号
@@ -766,7 +834,7 @@ public:
             return primaryExp->ReversalDump(strOriginal);
         }
         // UnaryOp UnaryExp
-        else
+        else if (selfMinorType[0] == '1')
         {
             std::string currOperator = unaryOp->ReversalDump(strOriginal);
             std::string lastLevelRegister = unaryExp->ReversalDump(strOriginal);
@@ -801,6 +869,17 @@ public:
             }
             return "";
         }
+        // IDENT '(' ')' 
+        else if (selfMinorType[0] == '2')
+        {
+            // do ident thing
+            return "";
+        }
+        // IDENT '(' FuncRParams ')'
+        else
+        {
+            return "";
+        }
     }
     int CalExpressionValue() override
     {
@@ -810,7 +889,7 @@ public:
             return primaryExp->CalExpressionValue();
         }
         // UnaryOp UnaryExp
-        else
+        else if (selfMinorType[0] == '1')
         {
             int currOperator = unaryOp->CalExpressionValue();
             if (currOperator == 0)
@@ -825,6 +904,33 @@ public:
             {
                 return unaryExp->CalExpressionValue();
             }
+        }
+        // IDENT '(' ')' 
+        // IDENT '(' FuncRParams ')'
+        else
+        {
+            return -1;
+        }
+    }
+};
+
+class FuncRParamsAST : public BaseAST
+{
+public:
+    std::unique_ptr<BaseAST> funcRParams;
+    std::unique_ptr<BaseAST> exp;
+    std::string selfMinorType;
+    void Dump(std::string &strOriginal) const override 
+    {
+        // Exp
+        if (selfMinorType[0] == '0')
+        {
+
+        }
+        // FuncRParams ',' Exp
+        else
+        {
+
         }
     }
 };
