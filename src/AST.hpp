@@ -18,6 +18,7 @@ extern int currThenBlockCnt;
 extern int currRetFlag;
 extern int currAfterRetNum;
 extern int currWhileNum;
+extern int currWhileContentFlag;
 
 class BaseAST
 {
@@ -192,6 +193,7 @@ public:
         // LVal "=" Exp ";"
         if (selfMinorType[0] == '0')
         {
+            currWhileContentFlag = 1;
             if (currRetFlag != 0)
             {
                 currAfterRetNum += 1;
@@ -230,11 +232,13 @@ public:
         // ';'
         else if (selfMinorType[0] == '1')
         {
+            currWhileContentFlag = 0;
             // do nothing
         }
         // Exp ';'
         else if (selfMinorType[0] == '2')
         {
+            currWhileContentFlag = 1;
             if (currRetFlag != 0)
             {
                 currAfterRetNum += 1;
@@ -288,6 +292,7 @@ public:
             strOriginal += "%while_body_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
+            currWhileContentFlag = 1;
             stmt->Dump(strOriginal);
             if (currRetFlag != 0)
             {
@@ -296,9 +301,19 @@ public:
                 strOriginal += ":\n";
                 currRetFlag = 0;
             }
-            strOriginal += "  jump %while_entry_";
-            strOriginal += std::to_string(currWhileBlock);
-            strOriginal += "\n";
+            if (currWhileContentFlag != 0)
+            {
+                strOriginal += "  jump %while_entry_";
+                strOriginal += std::to_string(currWhileBlock);
+                strOriginal += "\n";
+            }
+            else
+            {
+                strOriginal += "  jump %end_while_";
+                strOriginal += std::to_string(currWhileBlock);
+                strOriginal += "\n";
+            }
+            currWhileContentFlag = 1;
             strOriginal += "%end_while_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
@@ -307,6 +322,7 @@ public:
         // break ;
         else if (selfMinorType[0] == '5')
         {
+            currWhileContentFlag = 1;
             if (currRetFlag != 0)
             {
                 currAfterRetNum += 1;
@@ -324,6 +340,7 @@ public:
         // continue;
         else if (selfMinorType[0] == '6')
         {
+            currWhileContentFlag = 1;
             if (currRetFlag != 0)
             {
                 currAfterRetNum += 1;
@@ -341,6 +358,7 @@ public:
         // "return" ';'
         else if (selfMinorType[0] == '7')
         {
+            currWhileContentFlag = 1;
             if (currRetFlag != 0)
             {
                 currAfterRetNum += 1;
@@ -356,6 +374,7 @@ public:
         {
             // 最后一个level的寄存器或者数值
             // 如果是const或者数直接返回结果
+            currWhileContentFlag = 1;
             if (currRetFlag != 0)
             {
                 currAfterRetNum += 1;
@@ -998,7 +1017,7 @@ public:
             }
             else if (strcmp(compOperator.c_str(), ">") == 0)
             {
-                tempStr += " = ge ";
+                tempStr += " = gt ";
             }
             else if (strcmp(compOperator.c_str(), "<=") == 0)
             {
@@ -1253,10 +1272,12 @@ public:
     {
         if (selfMinorType[0] == '0')
         {
+            currWhileContentFlag = 1;
             constDecl->Dump(strOriginal);
         }
         else
         {
+            currWhileContentFlag = 1;
             varDecl->Dump(strOriginal);
         }
     }

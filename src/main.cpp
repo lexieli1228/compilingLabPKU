@@ -33,6 +33,9 @@ int currAfterRetNum = -1;
 // 分割了多少while entry和body
 int currWhileNum = -1;
 
+// current while content;
+int currWhileContentFlag = 0;
+
 // main函数的符号表
 map<std::string, int> syntaxNameCnt;
 vector<map<std::string, SyntaxElement> > syntaxTableVec;
