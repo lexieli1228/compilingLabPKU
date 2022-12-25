@@ -192,6 +192,14 @@ public:
         // LVal "=" Exp ";"
         if (selfMinorType[0] == '0')
         {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 0;
             std::string lValIdent = lVal->ReversalDump(strOriginal);
             int expVal = exp->CalExpressionValue();
             std::string expRegister = exp->ReversalDump(strOriginal);
@@ -227,16 +235,40 @@ public:
         // Exp ';'
         else if (selfMinorType[0] == '2')
         {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 0;
             std::string tempStr = exp->ReversalDump(strOriginal);
         }
         // Block
         else if (selfMinorType[0] == '3')
         {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 0;
             block->Dump(strOriginal);
         }
         // while '(' Exp ')' Stmt
         else if (selfMinorType[0] == '4')
         {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 0;
             currWhileNum += 1;
             int currWhileBlock = currWhileNum;
             strOriginal += "  jump %while_entry_";
@@ -270,9 +302,44 @@ public:
             strOriginal += "%end_while_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
+            currRetFlag = 0;
+        }
+        // break ;
+        else if (selfMinorType[0] == '5')
+        {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 0;
+            strOriginal += "  jump %end_while_";
+            int currWhileBlock = currWhileNum;
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += "\n";
+            currRetFlag = 1;
+        }
+        // continue;
+        else if (selfMinorType[0] == '6')
+        {
+            if (currRetFlag != 0)
+            {
+                currAfterRetNum += 1;
+                strOriginal += "%afterret_";
+                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += ":\n";
+            }
+            currRetFlag = 0;
+            strOriginal += "  jump %while_entry_";
+            int currWhileBlock = currWhileNum;
+            strOriginal += std::to_string(currWhileBlock);
+            strOriginal += "\n";
+            currRetFlag = 1;
         }
         // "return" ';'
-        else if (selfMinorType[0] == '5')
+        else if (selfMinorType[0] == '7')
         {
             if (currRetFlag != 0)
             {
