@@ -43,6 +43,57 @@ public:
     std::unique_ptr<BaseAST> combCompUnit;
     void Dump(std::string &strOriginal) const override
     {
+        // system functions
+        FuncElement tempFuncElement = FuncElement();
+
+        strOriginal += "decl @getint(): i32\n";
+        tempFuncElement.funcName = "getint";
+        tempFuncElement.funcType = "int";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @getch(): i32\n";
+        tempFuncElement.funcName = "getch";
+        tempFuncElement.funcType = "int";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @getarray(*i32): i32\n";
+        tempFuncElement.funcName = "getarray";
+        tempFuncElement.funcType = "int";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @putint(i32)\n";
+        tempFuncElement.funcName = "putint";
+        tempFuncElement.funcType = "void";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @putch(i32)\n";
+        tempFuncElement.funcName = "putch";
+        tempFuncElement.funcType = "void";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @putarray(i32, *i32)\n";
+        tempFuncElement.funcName = "putarray";
+        tempFuncElement.funcType = "void";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @starttime()\n";
+        tempFuncElement.funcName = "starttime";
+        tempFuncElement.funcType = "void";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+
+        strOriginal += "decl @stoptime()\n";
+        tempFuncElement.funcName = "stoptime";
+        tempFuncElement.funcType = "void";
+        funcTableVec.push_back(tempFuncElement);
+        currFuncCnt += 1;
+        
         combCompUnit->Dump(strOriginal);
     }
 };
