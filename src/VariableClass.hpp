@@ -16,6 +16,7 @@ public:
   bool isGivenNum;
   int num; 
   int index;
+  int ifFuncInitialElement;
   
   SyntaxElement()
   {
@@ -24,6 +25,7 @@ public:
     isGivenNum = false;
     num = -1;
     index = 0;
+    ifFuncInitialElement = 0;
   }
   
   bool operator == (const SyntaxElement &obj) const

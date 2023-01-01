@@ -92,14 +92,41 @@ public:
             strOriginal += "\n";
             strOriginal += "%entry: ";
             strOriginal += "\n";
+            currRetFlag = 0;
             block->Dump(strOriginal);
+            if (currRetFlag == 0)
+            {
+                strOriginal += "  ret\n";
+            }
             strOriginal += "\n";
             strOriginal += "}";
         }
         // FuncType IDENT '(' FuncFParams ')' Block
         else
         {
-
+            currMaxSyntaxVec += 1;
+            std::map<std::string, SyntaxElement> currSyntaxTable;
+            syntaxTableVec.push_back(currSyntaxTable);
+            strOriginal += "fun @";
+            strOriginal += ident;
+            strOriginal += "(";
+            std::string tempStr = funcFParams->ReversalDump(strOriginal);
+            strOriginal += "): ";
+            func_type->Dump(strOriginal);
+            strOriginal += " {";
+            strOriginal += "\n";
+            strOriginal += "%entry: ";
+            strOriginal += "\n";
+            funcFParams->Dump(strOriginal);
+            currRetFlag = 0;
+            block->Dump(strOriginal);
+            if (currRetFlag == 0)
+            {
+                strOriginal += "  ret\n";
+            }
+            strOriginal += "\n";
+            strOriginal += "}";
+            currMaxSyntaxVec -= 1;
         }
     }
 };
@@ -110,11 +137,11 @@ public:
     std::string funcType;
     void Dump(std::string &strOriginal) const override
     {
-        if (funcType == "int")
+        if (strcmp(funcType.c_str(), "int") == 0)
         {
             strOriginal += "i32";
         }
-        else if (funcType == "void")
+        else // void
         {
             // do nothing and add nothing
         }
@@ -126,9 +153,73 @@ class FuncFParamAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> bType;
     std::string ident;
+    // BType IDENT;
     void Dump(std::string &strOriginal) const override
     {
-        // do dump thing
+        std::map<std::string, SyntaxElement>::iterator tempIter;
+        for (int i = currMaxSyntaxVec; i >= 0; i--)
+        {
+            tempIter = syntaxTableVec[i].find(ident);
+            if (tempIter != syntaxTableVec[i].end())
+            {
+                SyntaxElement tempElement = tempIter->second;
+                if (tempElement.isConstant == false)
+                {
+                    strOriginal += "  %";
+                    strOriginal += ident;
+                    strOriginal += "_";
+                    strOriginal += std::to_string(tempElement.index);
+                    strOriginal += " = alloc i32\n";
+                    strOriginal += "  store @";
+                    strOriginal += ident;
+                    strOriginal += "_";
+                    strOriginal += std::to_string(tempElement.index);
+                    strOriginal += ", %";
+                    strOriginal += ident;
+                    strOriginal += "_";
+                    strOriginal += std::to_string(tempElement.index);
+                    strOriginal += "\n";
+                }
+                break;
+            }
+        }
+    }
+    std::string ReversalDump(std::string &strOriginal) override
+    {
+        std::map<std::string, int>::iterator initIter = syntaxNameCnt.find(ident);
+        SyntaxElement tempElement = SyntaxElement();
+        if (initIter != syntaxNameCnt.end())
+        {
+            tempElement.ident = ident;
+            tempElement.isConstant = false;
+            tempElement.isGivenNum = false;
+            tempElement.index = initIter->second + 1;
+            tempElement.ifFuncInitialElement = 1;
+            initIter->second += 1;
+            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+        }
+        else
+        {
+            tempElement.ident = ident;
+            tempElement.isConstant = false;
+            tempElement.isGivenNum = false;
+            tempElement.index = 0;
+            tempElement.ifFuncInitialElement = 1;
+            syntaxNameCnt.insert(std::make_pair(ident, 0));
+            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+        }
+        std::string tempStr = "";
+        tempStr += "@";
+        tempStr += ident;
+        tempStr += "_";
+        tempStr += std::to_string(tempElement.index);
+        tempStr += ": ";
+        if (strcmp(ident.c_str(), "int") != 0)
+        {
+            tempStr += "i32";
+        }
+        strOriginal += tempStr;
+        return ident;
     }
 };
 
@@ -151,6 +242,24 @@ public:
             funcFParams->Dump(strOriginal);
             funcFParam->Dump(strOriginal);
         }
+    }
+    // getting the initial value inside the function name def
+    std::string ReversalDump(std::string &strOriginal) override
+    {
+        // FuncFParam
+        std::string tempStr;
+        if (selfMinorType[0] == '0')
+        {
+            tempStr = funcFParam->ReversalDump(strOriginal);
+        }
+        //  FuncFParams ',' FuncFParam
+        else
+        {
+            tempStr = funcFParams->ReversalDump(strOriginal);
+            strOriginal += ", ";
+            tempStr = funcFParam->ReversalDump(strOriginal);
+        }
+        return "";
     }
 };
 
@@ -175,9 +284,10 @@ public:
             }
             currMaxSyntaxVec -= 1;
         }
+        // empty block
         else
         {
-            // do nothing
+            currRetFlag = 0;
         }
     }
 };
@@ -496,7 +606,15 @@ public:
                             currRegister = "%" + std::to_string(currMaxRegister);
                             std::string tempStr = "  ";
                             tempStr += currRegister;
-                            tempStr += " = load @";
+                            tempStr += " = load ";
+                            if (tempElement.ifFuncInitialElement == 1)
+                            {
+                                tempStr += "%";
+                            }
+                            else
+                            {
+                                tempStr += "@";
+                            }
                             tempStr += tempElement.ident;
                             tempStr += "_";
                             tempStr += std::to_string(tempElement.index);
@@ -761,7 +879,15 @@ public:
                         std::string currRegister = std::to_string(currMaxRegister);
                         std::string tempStr = "  %";
                         tempStr += currRegister;
-                        tempStr += " = load @";
+                        tempStr += " = load ";
+                        if (tempElement.ifFuncInitialElement == 0)
+                        {
+                            tempStr += "@";
+                        }
+                        else
+                        {
+                            tempStr += "%";
+                        }
                         tempStr += tempIter->second.ident;
                         tempStr += "_";
                         tempStr += std::to_string(tempIter->second.index);
@@ -869,7 +995,7 @@ public:
             }
             return "";
         }
-        // IDENT '(' ')' 
+        // IDENT '(' ')'
         else if (selfMinorType[0] == '2')
         {
             // do ident thing
@@ -905,7 +1031,7 @@ public:
                 return unaryExp->CalExpressionValue();
             }
         }
-        // IDENT '(' ')' 
+        // IDENT '(' ')'
         // IDENT '(' FuncRParams ')'
         else
         {
@@ -920,17 +1046,15 @@ public:
     std::unique_ptr<BaseAST> funcRParams;
     std::unique_ptr<BaseAST> exp;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override 
+    void Dump(std::string &strOriginal) const override
     {
         // Exp
         if (selfMinorType[0] == '0')
         {
-
         }
         // FuncRParams ',' Exp
         else
         {
-
         }
     }
 };
@@ -1432,6 +1556,7 @@ public:
             tempElement.isGivenNum = true;
             tempElement.num = constInitVal->CalExpressionValue();
             tempElement.index = constInitIter->second + 1;
+            tempElement.ifFuncInitialElement = 0;
             constInitIter->second += 1;
             syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
@@ -1443,6 +1568,7 @@ public:
             tempElement.isGivenNum = true;
             tempElement.num = constInitVal->CalExpressionValue();
             tempElement.index = 0;
+            tempElement.ifFuncInitialElement = 0;
             syntaxNameCnt.insert(std::make_pair(ident, 0));
             syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
@@ -1540,6 +1666,7 @@ public:
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = false;
                 tempElement.index = initIter->second + 1;
+                tempElement.ifFuncInitialElement = 0;
                 initIter->second += 1;
                 syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
@@ -1549,10 +1676,11 @@ public:
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = false;
                 tempElement.index = 0;
+                tempElement.ifFuncInitialElement = 0;
                 syntaxNameCnt.insert(std::make_pair(ident, 0));
                 syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
-            strOriginal += "@";
+            strOriginal += "  @";
             strOriginal += ident;
             strOriginal += "_";
             strOriginal += std::to_string(tempElement.index);
@@ -1571,6 +1699,7 @@ public:
                 tempElement.isGivenNum = true;
                 tempElement.num = calInitResult;
                 tempElement.index = initIter->second + 1;
+                tempElement.ifFuncInitialElement = 0;
                 initIter->second += 1;
                 syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
@@ -1581,6 +1710,7 @@ public:
                 tempElement.isGivenNum = true;
                 tempElement.num = calInitResult;
                 tempElement.index = 0;
+                tempElement.ifFuncInitialElement = 0;
                 syntaxNameCnt.insert(std::make_pair(ident, 0));
                 syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
