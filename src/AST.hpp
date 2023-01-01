@@ -11,15 +11,11 @@
 
 extern int registerCnt;
 extern int currMaxRegister;
-extern int currMaxSyntaxVec;
-extern std::map<std::string, int> syntaxNameCnt;
-extern std::vector<std::map<std::string, SyntaxElement>> syntaxTableVec;
-extern int currThenBlockCnt;
-extern int currRetFlag;
-extern int currAfterRetNum;
-extern int currWhileNum;
-extern int currWhileContentFlag;
-extern int currLayerWhileNum;
+
+// 函数们
+extern std::vector<FuncElement> funcTableVec;
+
+extern int currFuncCnt;
 
 class BaseAST
 {
@@ -81,9 +77,14 @@ public:
     std::string selfMinorType;
     void Dump(std::string &strOriginal) const override
     {
+        FuncElement tempFuncElement = FuncElement();
         // FuncType IDENT '(' ')' Block
         if (selfMinorType[0] == '0')
         {
+            tempFuncElement.funcName = ident;
+            tempFuncElement.funcType = func_type->ReversalDump(strOriginal);
+            funcTableVec.push_back(tempFuncElement);
+            currFuncCnt += 1;
             strOriginal += "fun @";
             strOriginal += ident;
             strOriginal += "(): ";
@@ -92,9 +93,9 @@ public:
             strOriginal += "\n";
             strOriginal += "%entry: ";
             strOriginal += "\n";
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             block->Dump(strOriginal);
-            if (currRetFlag == 0)
+            if (funcTableVec[currFuncCnt].currRetFlag == 0)
             {
                 strOriginal += "  ret\n";
             }
@@ -104,9 +105,13 @@ public:
         // FuncType IDENT '(' FuncFParams ')' Block
         else
         {
-            currMaxSyntaxVec += 1;
+            tempFuncElement.funcName = ident;
+            tempFuncElement.funcType = func_type->ReversalDump(strOriginal);
+            funcTableVec.push_back(tempFuncElement);
+            currFuncCnt += 1;
+            funcTableVec[currFuncCnt].currMaxSyntaxVec += 1;
             std::map<std::string, SyntaxElement> currSyntaxTable;
-            syntaxTableVec.push_back(currSyntaxTable);
+            funcTableVec[currFuncCnt].syntaxTableVec.push_back(currSyntaxTable);
             strOriginal += "fun @";
             strOriginal += ident;
             strOriginal += "(";
@@ -118,15 +123,15 @@ public:
             strOriginal += "%entry: ";
             strOriginal += "\n";
             funcFParams->Dump(strOriginal);
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             block->Dump(strOriginal);
-            if (currRetFlag == 0)
+            if (funcTableVec[currFuncCnt].currRetFlag == 0)
             {
                 strOriginal += "  ret\n";
             }
             strOriginal += "\n";
             strOriginal += "}";
-            currMaxSyntaxVec -= 1;
+            funcTableVec[currFuncCnt].currMaxSyntaxVec -= 1;
         }
     }
 };
@@ -146,6 +151,10 @@ public:
             // do nothing and add nothing
         }
     }
+    std::string ReversalDump(std::string &strOriginal) override
+    {
+        return funcType;
+    }
 };
 
 class FuncFParamAST : public BaseAST
@@ -157,10 +166,10 @@ public:
     void Dump(std::string &strOriginal) const override
     {
         std::map<std::string, SyntaxElement>::iterator tempIter;
-        for (int i = currMaxSyntaxVec; i >= 0; i--)
+        for (int i = funcTableVec[currFuncCnt].currMaxSyntaxVec; i >= 0; i--)
         {
-            tempIter = syntaxTableVec[i].find(ident);
-            if (tempIter != syntaxTableVec[i].end())
+            tempIter = funcTableVec[currFuncCnt].syntaxTableVec[i].find(ident);
+            if (tempIter != funcTableVec[currFuncCnt].syntaxTableVec[i].end())
             {
                 SyntaxElement tempElement = tempIter->second;
                 if (tempElement.isConstant == false)
@@ -186,9 +195,9 @@ public:
     }
     std::string ReversalDump(std::string &strOriginal) override
     {
-        std::map<std::string, int>::iterator initIter = syntaxNameCnt.find(ident);
+        std::map<std::string, int>::iterator initIter = funcTableVec[currFuncCnt].syntaxNameCnt.find(ident);
         SyntaxElement tempElement = SyntaxElement();
-        if (initIter != syntaxNameCnt.end())
+        if (initIter != funcTableVec[currFuncCnt].syntaxNameCnt.end())
         {
             tempElement.ident = ident;
             tempElement.isConstant = false;
@@ -196,7 +205,7 @@ public:
             tempElement.index = initIter->second + 1;
             tempElement.ifFuncInitialElement = 1;
             initIter->second += 1;
-            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+            funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
         else
         {
@@ -205,8 +214,8 @@ public:
             tempElement.isGivenNum = false;
             tempElement.index = 0;
             tempElement.ifFuncInitialElement = 1;
-            syntaxNameCnt.insert(std::make_pair(ident, 0));
-            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+            funcTableVec[currFuncCnt].syntaxNameCnt.insert(std::make_pair(ident, 0));
+            funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
         std::string tempStr = "";
         tempStr += "@";
@@ -273,21 +282,21 @@ public:
     {
         if (selfMinorType[0] == '0')
         {
-            // 每次进入一个block 增加一个vector，然后在这个block处理过程中就会用这个最新vec 之前的vec一定对其有
-            currMaxSyntaxVec += 1;
-            syntaxTableVec.push_back(currSyntaxTable);
+            // 每次进入一个function 增加一个vector，然后在这个block处理过程中就会用这个最新vec 之前的vec一定对其有
+            funcTableVec[currFuncCnt].currMaxSyntaxVec += 1;
+            funcTableVec[currFuncCnt].syntaxTableVec.push_back(currSyntaxTable);
             blockCombinedItem->Dump(strOriginal);
             // erase the syntaxTable for this block when exiting
-            if (syntaxTableVec.size() > 0)
+            if (funcTableVec[currFuncCnt].syntaxTableVec.size() > 0)
             {
-                syntaxTableVec.erase(syntaxTableVec.begin() + currMaxSyntaxVec);
+                funcTableVec[currFuncCnt].syntaxTableVec.erase(funcTableVec[currFuncCnt].syntaxTableVec.begin() + funcTableVec[currFuncCnt].currMaxSyntaxVec);
             }
-            currMaxSyntaxVec -= 1;
+            funcTableVec[currFuncCnt].currMaxSyntaxVec -= 1;
         }
         // empty block
         else
         {
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
         }
     }
 };
@@ -370,25 +379,25 @@ public:
         // LVal "=" Exp ";"
         if (selfMinorType[0] == '0')
         {
-            currWhileContentFlag = 1;
-            if (currRetFlag != 0)
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             std::string lValIdent = lVal->ReversalDump(strOriginal);
             int expVal = exp->CalExpressionValue();
             std::string expRegister = exp->ReversalDump(strOriginal);
             if (strcmp(lValIdent.c_str(), "error") != 0)
             {
                 std::map<std::string, SyntaxElement>::iterator tempIter;
-                for (int i = currMaxSyntaxVec; i >= 0; i--)
+                for (int i = funcTableVec[currFuncCnt].currMaxSyntaxVec; i >= 0; i--)
                 {
-                    tempIter = syntaxTableVec[i].find(lValIdent);
-                    if (tempIter != syntaxTableVec[i].end())
+                    tempIter = funcTableVec[currFuncCnt].syntaxTableVec[i].find(lValIdent);
+                    if (tempIter != funcTableVec[currFuncCnt].syntaxTableVec[i].end())
                     {
                         SyntaxElement tempElement = SyntaxElement();
                         tempIter->second.isGivenNum = true;
@@ -409,50 +418,50 @@ public:
         // ';'
         else if (selfMinorType[0] == '1')
         {
-            currWhileContentFlag |= 0;
+            funcTableVec[currFuncCnt].currWhileContentFlag |= 0;
             // do nothing
         }
         // Exp ';'
         else if (selfMinorType[0] == '2')
         {
-            currWhileContentFlag = 1;
-            if (currRetFlag != 0)
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             std::string tempStr = exp->ReversalDump(strOriginal);
         }
         // Block
         else if (selfMinorType[0] == '3')
         {
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             block->Dump(strOriginal);
         }
         // while '(' Exp ')' Stmt
         else if (selfMinorType[0] == '4')
         {
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 0;
-            currWhileNum += 1;
-            currLayerWhileNum = currWhileNum;
-            int currWhileBlock = currLayerWhileNum;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
+            funcTableVec[currFuncCnt].currWhileNum += 1;
+            funcTableVec[currFuncCnt].currLayerWhileNum = funcTableVec[currFuncCnt].currWhileNum;
+            int currWhileBlock = funcTableVec[currFuncCnt].currLayerWhileNum;
             strOriginal += "  jump %while_entry_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += "\n";
@@ -471,16 +480,16 @@ public:
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
 
-            currWhileContentFlag = 0;
+            funcTableVec[currFuncCnt].currWhileContentFlag = 0;
             stmt->Dump(strOriginal);
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
                 strOriginal += "%afterwhileret_";
                 strOriginal += std::to_string(currWhileBlock);
                 strOriginal += ":\n";
-                currRetFlag = 0;
+                funcTableVec[currFuncCnt].currRetFlag = 0;
             }
-            if (currWhileContentFlag != 0)
+            if (funcTableVec[currFuncCnt].currWhileContentFlag != 0)
             {
                 strOriginal += "  jump %while_entry_";
                 strOriginal += std::to_string(currWhileBlock);
@@ -492,60 +501,60 @@ public:
                 strOriginal += std::to_string(currWhileBlock);
                 strOriginal += "\n";
             }
-            currWhileContentFlag = 1;
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
             strOriginal += "%end_while_";
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += ":\n";
-            currRetFlag = 0;
-            currLayerWhileNum -= 1;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
+            funcTableVec[currFuncCnt].currLayerWhileNum -= 1;
         }
         // break ;
         else if (selfMinorType[0] == '5')
         {
-            currWhileContentFlag = 1;
-            if (currRetFlag != 0)
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
             strOriginal += "  jump %end_while_";
-            int currWhileBlock = currLayerWhileNum;
+            int currWhileBlock = funcTableVec[currFuncCnt].currLayerWhileNum;
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += "\n";
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
         }
         // continue;
         else if (selfMinorType[0] == '6')
         {
-            currWhileContentFlag = 1;
-            if (currRetFlag != 0)
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             strOriginal += "  jump %while_entry_";
-            int currWhileBlock = currLayerWhileNum;
+            int currWhileBlock = funcTableVec[currFuncCnt].currLayerWhileNum;
             strOriginal += std::to_string(currWhileBlock);
             strOriginal += "\n";
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
         }
         // "return" ';'
         else if (selfMinorType[0] == '7')
         {
-            currWhileContentFlag = 1;
-            if (currRetFlag != 0)
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
             strOriginal += "  ret\n";
         }
         // "return" Exp ";"
@@ -553,15 +562,15 @@ public:
         {
             // 最后一个level的寄存器或者数值
             // 如果是const或者数直接返回结果
-            currWhileContentFlag = 1;
-            if (currRetFlag != 0)
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
             std::string lastLevelResult = exp->ReversalDump(strOriginal);
             strOriginal += "  ret ";
             strOriginal += lastLevelResult;
@@ -583,7 +592,7 @@ public:
         // if exp then matched_stmt else matched_stmt
         if (selfMinorType[0] == '0')
         {
-            currWhileContentFlag = 1;
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
             std::string expResult = exp->ReversalDump(strOriginal);
             std::string currRegister;
             // register
@@ -592,12 +601,12 @@ public:
                 currRegister = expResult;
             }
             // a variable
-            else if (syntaxNameCnt.find(expResult) != syntaxNameCnt.end())
+            else if (funcTableVec[currFuncCnt].syntaxNameCnt.find(expResult) != funcTableVec[currFuncCnt].syntaxNameCnt.end())
             {
-                for (int i = currMaxSyntaxVec; i >= 0; i--)
+                for (int i = funcTableVec[currFuncCnt].currMaxSyntaxVec; i >= 0; i--)
                 {
-                    std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTableVec[i].find(expResult);
-                    if (tempIter != syntaxTableVec[i].end())
+                    std::map<std::string, SyntaxElement>::iterator tempIter = funcTableVec[currFuncCnt].syntaxTableVec[i].find(expResult);
+                    if (tempIter != funcTableVec[currFuncCnt].syntaxTableVec[i].end())
                     {
                         SyntaxElement tempElement = tempIter->second;
                         if (tempElement.isConstant == false)
@@ -634,8 +643,8 @@ public:
             {
                 currRegister = expResult;
             }
-            currThenBlockCnt += 1;
-            int currBlock = currThenBlockCnt;
+            funcTableVec[currFuncCnt].currThenBlockCnt += 1;
+            int currBlock = funcTableVec[currFuncCnt].currThenBlockCnt;
 
             strOriginal += "  br ";
             strOriginal += currRegister;
@@ -647,13 +656,13 @@ public:
             strOriginal += "%then_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             matchedStmt0->Dump(strOriginal);
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
             strOriginal += "  jump %end_";
@@ -663,13 +672,13 @@ public:
             strOriginal += "%else_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             matchedStmt1->Dump(strOriginal);
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
             strOriginal += "  jump %end_";
@@ -679,7 +688,7 @@ public:
             strOriginal += "%end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
         }
         // other
         else
@@ -701,19 +710,19 @@ public:
     {
         std::string expResult = exp->ReversalDump(strOriginal);
         std::string currRegister;
-        currWhileContentFlag = 1;
+        funcTableVec[currFuncCnt].currWhileContentFlag = 1;
         // register
         if (expResult[0] == '%')
         {
             currRegister = expResult;
         }
         // a variable
-        else if (syntaxNameCnt.find(expResult) != syntaxNameCnt.end())
+        else if (funcTableVec[currFuncCnt].syntaxNameCnt.find(expResult) != funcTableVec[currFuncCnt].syntaxNameCnt.end())
         {
-            for (int i = currMaxSyntaxVec; i >= 0; i--)
+            for (int i = funcTableVec[currFuncCnt].currMaxSyntaxVec; i >= 0; i--)
             {
-                std::map<std::string, SyntaxElement>::iterator tempIter = syntaxTableVec[i].find(expResult);
-                if (tempIter != syntaxTableVec[i].end())
+                std::map<std::string, SyntaxElement>::iterator tempIter = funcTableVec[currFuncCnt].syntaxTableVec[i].find(expResult);
+                if (tempIter != funcTableVec[currFuncCnt].syntaxTableVec[i].end())
                 {
                     SyntaxElement tempElement = tempIter->second;
                     if (tempElement.isConstant == false)
@@ -742,8 +751,8 @@ public:
         {
             currRegister = expResult;
         }
-        currThenBlockCnt += 1;
-        int currBlock = currThenBlockCnt;
+        funcTableVec[currFuncCnt].currThenBlockCnt += 1;
+        int currBlock = funcTableVec[currFuncCnt].currThenBlockCnt;
         // if exp then stmt
         if (selfMinorType[0] == '0')
         {
@@ -757,20 +766,20 @@ public:
             strOriginal += "%then_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             stmt->Dump(strOriginal);
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
-                currRetFlag = 0;
+                funcTableVec[currFuncCnt].currRetFlag = 0;
             }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
         }
         // if exp then matched_stmt else open_stmt
         else
@@ -785,42 +794,42 @@ public:
             strOriginal += "%then_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             matchedStmt->Dump(strOriginal);
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
 
             strOriginal += "%else_";
             strOriginal += std::to_string(currBlock);
             strOriginal += ":\n";
 
-            currRetFlag = 0;
+            funcTableVec[currFuncCnt].currRetFlag = 0;
             openStmt->Dump(strOriginal);
-            if (currRetFlag != 0)
+            if (funcTableVec[currFuncCnt].currRetFlag != 0)
             {
-                currAfterRetNum += 1;
+                funcTableVec[currFuncCnt].currAfterRetNum += 1;
                 strOriginal += "%afterret_";
-                strOriginal += std::to_string(currAfterRetNum);
+                strOriginal += std::to_string(funcTableVec[currFuncCnt].currAfterRetNum);
                 strOriginal += ":\n";
             }
             strOriginal += "  jump %end_";
             strOriginal += std::to_string(currBlock);
             strOriginal += "\n";
-            currRetFlag = 1;
+            funcTableVec[currFuncCnt].currRetFlag = 1;
         }
         strOriginal += "%end_";
         strOriginal += std::to_string(currBlock);
         strOriginal += ":\n";
-        currRetFlag = 0;
+        funcTableVec[currFuncCnt].currRetFlag = 0;
     }
 };
 
@@ -866,10 +875,10 @@ public:
         {
             std::string lValIdent = lVal->ReversalDump(strOriginal);
             std::map<std::string, SyntaxElement>::iterator tempIter;
-            for (int i = currMaxSyntaxVec; i >= 0; i--)
+            for (int i = funcTableVec[currFuncCnt].currMaxSyntaxVec; i >= 0; i--)
             {
-                tempIter = syntaxTableVec[i].find(lValIdent);
-                if (tempIter != syntaxTableVec[i].end())
+                tempIter = funcTableVec[currFuncCnt].syntaxTableVec[i].find(lValIdent);
+                if (tempIter != funcTableVec[currFuncCnt].syntaxTableVec[i].end())
                 {
                     SyntaxElement tempElement = tempIter->second;
                     // int variable, should load it into a register
@@ -1507,12 +1516,12 @@ public:
     {
         if (selfMinorType[0] == '0')
         {
-            currWhileContentFlag = 1;
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
             constDecl->Dump(strOriginal);
         }
         else
         {
-            currWhileContentFlag = 1;
+            funcTableVec[currFuncCnt].currWhileContentFlag = 1;
             varDecl->Dump(strOriginal);
         }
     }
@@ -1547,8 +1556,8 @@ public:
     std::unique_ptr<BaseAST> constInitVal;
     void Dump(std::string &strOriginal) const override
     {
-        std::map<std::string, int>::iterator constInitIter = syntaxNameCnt.find(ident);
-        if (constInitIter != syntaxNameCnt.end())
+        std::map<std::string, int>::iterator constInitIter = funcTableVec[currFuncCnt].syntaxNameCnt.find(ident);
+        if (constInitIter != funcTableVec[currFuncCnt].syntaxNameCnt.end())
         {
             SyntaxElement tempElement = SyntaxElement();
             tempElement.ident = ident;
@@ -1558,7 +1567,7 @@ public:
             tempElement.index = constInitIter->second + 1;
             tempElement.ifFuncInitialElement = 0;
             constInitIter->second += 1;
-            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+            funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
         else
         {
@@ -1569,8 +1578,8 @@ public:
             tempElement.num = constInitVal->CalExpressionValue();
             tempElement.index = 0;
             tempElement.ifFuncInitialElement = 0;
-            syntaxNameCnt.insert(std::make_pair(ident, 0));
-            syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+            funcTableVec[currFuncCnt].syntaxNameCnt.insert(std::make_pair(ident, 0));
+            funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
         }
     }
     int CalExpressionValue() override
@@ -1658,9 +1667,9 @@ public:
         // IDENT
         if (selfMinorType[0] == '0')
         {
-            std::map<std::string, int>::iterator initIter = syntaxNameCnt.find(ident);
+            std::map<std::string, int>::iterator initIter = funcTableVec[currFuncCnt].syntaxNameCnt.find(ident);
             SyntaxElement tempElement = SyntaxElement();
-            if (initIter != syntaxNameCnt.end())
+            if (initIter != funcTableVec[currFuncCnt].syntaxNameCnt.end())
             {
                 tempElement.ident = ident;
                 tempElement.isConstant = false;
@@ -1668,7 +1677,7 @@ public:
                 tempElement.index = initIter->second + 1;
                 tempElement.ifFuncInitialElement = 0;
                 initIter->second += 1;
-                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+                funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
             else
             {
@@ -1677,8 +1686,8 @@ public:
                 tempElement.isGivenNum = false;
                 tempElement.index = 0;
                 tempElement.ifFuncInitialElement = 0;
-                syntaxNameCnt.insert(std::make_pair(ident, 0));
-                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+                funcTableVec[currFuncCnt].syntaxNameCnt.insert(std::make_pair(ident, 0));
+                funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
             strOriginal += "  @";
             strOriginal += ident;
@@ -1690,9 +1699,9 @@ public:
         else
         {
             int calInitResult = initVal->CalExpressionValue();
-            std::map<std::string, int>::iterator initIter = syntaxNameCnt.find(ident);
+            std::map<std::string, int>::iterator initIter = funcTableVec[currFuncCnt].syntaxNameCnt.find(ident);
             SyntaxElement tempElement = SyntaxElement();
-            if (initIter != syntaxNameCnt.end())
+            if (initIter != funcTableVec[currFuncCnt].syntaxNameCnt.end())
             {
                 tempElement.ident = ident;
                 tempElement.isConstant = false;
@@ -1701,7 +1710,7 @@ public:
                 tempElement.index = initIter->second + 1;
                 tempElement.ifFuncInitialElement = 0;
                 initIter->second += 1;
-                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+                funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
             else
             {
@@ -1711,8 +1720,8 @@ public:
                 tempElement.num = calInitResult;
                 tempElement.index = 0;
                 tempElement.ifFuncInitialElement = 0;
-                syntaxNameCnt.insert(std::make_pair(ident, 0));
-                syntaxTableVec[currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
+                funcTableVec[currFuncCnt].syntaxNameCnt.insert(std::make_pair(ident, 0));
+                funcTableVec[currFuncCnt].syntaxTableVec[funcTableVec[currFuncCnt].currMaxSyntaxVec].insert(std::make_pair(ident, tempElement));
             }
             strOriginal += "  @";
             strOriginal += ident;
@@ -1752,7 +1761,7 @@ public:
     void Dump(std::string &strOriginal) const override {}
     std::string ReversalDump(std::string &strOriginal) override
     {
-        if (syntaxNameCnt.find(ident) == syntaxNameCnt.end())
+        if (funcTableVec[currFuncCnt].syntaxNameCnt.find(ident) == funcTableVec[currFuncCnt].syntaxNameCnt.end())
         {
             return "error in lval ast";
         }
@@ -1763,16 +1772,16 @@ public:
     }
     int CalExpressionValue() override
     {
-        if (syntaxNameCnt.find(ident) == syntaxNameCnt.end())
+        if (funcTableVec[currFuncCnt].syntaxNameCnt.find(ident) == funcTableVec[currFuncCnt].syntaxNameCnt.end())
         {
             return -1;
         }
         else
         {
-            for (int i = currMaxSyntaxVec; i >= 0; i--)
+            for (int i = funcTableVec[currFuncCnt].currMaxSyntaxVec; i >= 0; i--)
             {
-                std::map<std::string, SyntaxElement>::iterator tempElement = syntaxTableVec[i].find(ident);
-                if (tempElement != syntaxTableVec[i].end())
+                std::map<std::string, SyntaxElement>::iterator tempElement = funcTableVec[currFuncCnt].syntaxTableVec[i].find(ident);
+                if (tempElement != funcTableVec[currFuncCnt].syntaxTableVec[i].end())
                 {
                     return tempElement->second.num;
                 }

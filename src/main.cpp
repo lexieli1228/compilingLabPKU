@@ -18,30 +18,11 @@ extern FILE *yyout;
 int registerCnt = 0;
 int currMaxRegister = -1;
 
-// 记录当前符号表的level层数
-int currMaxSyntaxVec = -1;
+// 当前的函数个数
+int currFuncCnt = -1;
 
-// 当前If条件语句中then block的数又多少
-int currThenBlockCnt = -1;
-
-// 当前block中有没有return
-int currRetFlag = 0;
-
-// 因为return多分割了多少个block
-int currAfterRetNum = -1;
-
-// 分割了多少while entry和body
-int currWhileNum = -1;
-
-// 当前工作的是哪个while层级
-int currLayerWhileNum = -1;
-
-// current while content;
-int currWhileContentFlag = 0;
-
-// main函数的符号表
-map<std::string, int> syntaxNameCnt;
-vector<map<std::string, SyntaxElement> > syntaxTableVec;
+// 函数们
+vector<FuncElement> funcTableVec;
 
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
