@@ -100,7 +100,7 @@ public:
                 strOriginal += "  ret\n";
             }
             strOriginal += "\n";
-            strOriginal += "}";
+            strOriginal += "}\n\n";
         }
         // FuncType IDENT '(' FuncFParams ')' Block
         else
@@ -130,7 +130,7 @@ public:
                 strOriginal += "  ret\n";
             }
             strOriginal += "\n";
-            strOriginal += "}";
+            strOriginal += "}\n\n";
             funcTableVec[currFuncCnt].currMaxSyntaxVec -= 1;
         }
     }
@@ -1007,12 +1007,69 @@ public:
         // IDENT '(' ')'
         else if (selfMinorType[0] == '2')
         {
-            // do ident thing
+            for (int i = 0; i < funcTableVec.size(); ++ i)
+            {
+                if (funcTableVec[i].funcName == ident)
+                {
+                    std::string tempStr = "";
+                    if (funcTableVec[i].funcType == "int")
+                    {
+                        currMaxRegister++;
+                        std::string currRegister = std::to_string(currMaxRegister);
+                        tempStr += "  %" + currRegister;
+                        tempStr += " = call @";
+                        tempStr += ident;
+                        tempStr += "()\n";
+                        strOriginal += tempStr;
+                        return "%" + currRegister;
+                    }
+                    else
+                    {
+                        tempStr += "  call @";
+                        tempStr += ident;
+                        tempStr += "()\n";
+                        strOriginal += tempStr;
+                        return "";
+                    }
+                }
+            }
             return "";
         }
         // IDENT '(' FuncRParams ')'
         else
         {
+            for (int i = 0; i < funcTableVec.size(); ++ i)
+            {
+                if (funcTableVec[i].funcName == ident)
+                {
+                    std::string generateFuncParams = funcRParams->ReversalDump(strOriginal);
+                    std::string tempStr = "";
+                    if (funcTableVec[i].funcType == "int")
+                    {
+                        currMaxRegister++;
+                        std::string currRegister = std::to_string(currMaxRegister);
+                        tempStr += "  %" + currRegister;
+                        tempStr += " = call @";
+                        tempStr += ident;
+                        tempStr += "(";
+                        tempStr += generateFuncParams;
+                        tempStr += ")\n";
+                        strOriginal += tempStr;
+                        return "%" + currRegister;
+                    }
+                    else
+                    {
+                        tempStr += "  call @";
+                        tempStr += ident;
+                        tempStr += "(";
+                        tempStr += generateFuncParams;
+                        tempStr += ")\n";
+                        strOriginal += tempStr;
+                        return "";
+                    }
+                    return "";
+                }
+            }
             return "";
         }
     }
@@ -1055,16 +1112,27 @@ public:
     std::unique_ptr<BaseAST> funcRParams;
     std::unique_ptr<BaseAST> exp;
     std::string selfMinorType;
-    void Dump(std::string &strOriginal) const override
+    std::string paramsResult;
+    void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override
     {
+        paramsResult = "";
         // Exp
         if (selfMinorType[0] == '0')
         {
+            std::string expResult = exp->ReversalDump(strOriginal);
+            paramsResult += expResult;
         }
         // FuncRParams ',' Exp
         else
         {
+            std::string funcRParamsResult = funcRParams->ReversalDump(strOriginal);
+            std::string expResult = exp->ReversalDump(strOriginal);
+            paramsResult += funcRParamsResult;
+            paramsResult += ", ";
+            paramsResult += expResult;
         }
+        return paramsResult;
     }
 };
 
