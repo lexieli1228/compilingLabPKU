@@ -88,12 +88,12 @@ public:
         funcTableVec.push_back(tempFuncElement);
         currFuncCnt += 1;
 
-        strOriginal += "decl @stoptime()\n";
+        strOriginal += "decl @stoptime()\n\n";
         tempFuncElement.funcName = "stoptime";
         tempFuncElement.funcType = "void";
         funcTableVec.push_back(tempFuncElement);
         currFuncCnt += 1;
-        
+
         combCompUnit->Dump(strOriginal);
     }
 };
@@ -138,7 +138,11 @@ public:
             currFuncCnt += 1;
             strOriginal += "fun @";
             strOriginal += ident;
-            strOriginal += "(): ";
+            strOriginal += "()";
+            if (tempFuncElement.funcType != "void")
+            {
+                strOriginal += ": ";
+            }
             func_type->Dump(strOriginal);
             strOriginal += " {";
             strOriginal += "\n";
@@ -169,7 +173,7 @@ public:
             std::string tempStr = funcFParams->ReversalDump(strOriginal);
             strOriginal += "): ";
             func_type->Dump(strOriginal);
-            strOriginal += " {";
+            strOriginal += "{";
             strOriginal += "\n";
             strOriginal += "%entry: ";
             strOriginal += "\n";
@@ -1149,9 +1153,15 @@ public:
             }
         }
         // IDENT '(' ')'
+        else if (selfMinorType[0] == '2')
+        {
+            funcTableVec[currFuncCnt].currCallFunc = 1;
+            return -1;
+        }
         // IDENT '(' FuncRParams ')'
         else
         {
+            funcTableVec[currFuncCnt].currCallFunc = 1;
             return -1;
         }
     }
@@ -1825,7 +1835,10 @@ public:
                 tempElement.ident = ident;
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = true;
-                tempElement.num = calInitResult;
+                if (funcTableVec[currFuncCnt].currCallFunc != 1)
+                {
+                    tempElement.num = calInitResult;
+                }
                 tempElement.index = initIter->second + 1;
                 tempElement.ifFuncInitialElement = 0;
                 initIter->second += 1;
@@ -1836,7 +1849,10 @@ public:
                 tempElement.ident = ident;
                 tempElement.isConstant = false;
                 tempElement.isGivenNum = true;
-                tempElement.num = calInitResult;
+                if (funcTableVec[currFuncCnt].currCallFunc != 1)
+                {
+                    tempElement.num = calInitResult;
+                }
                 tempElement.index = 0;
                 tempElement.ifFuncInitialElement = 0;
                 funcTableVec[currFuncCnt].syntaxNameCnt.insert(std::make_pair(ident, 0));
@@ -1847,13 +1863,15 @@ public:
             strOriginal += "_";
             strOriginal += std::to_string(tempElement.index);
             strOriginal += " = alloc i32\n";
+            std::string tempRegister = initVal->ReversalDump(strOriginal);
             strOriginal += "  store ";
-            strOriginal += std::to_string(calInitResult);
+            strOriginal += tempRegister;
             strOriginal += ", @";
             strOriginal += ident;
             strOriginal += "_";
             strOriginal += std::to_string(tempElement.index);
             strOriginal += "\n";
+            funcTableVec[currFuncCnt].currCallFunc = 0;
         }
     }
     int CalExpressionValue() override
@@ -1867,6 +1885,10 @@ class InitValAST : public BaseAST
 public:
     std::unique_ptr<BaseAST> exp;
     void Dump(std::string &strOriginal) const override {}
+    std::string ReversalDump(std::string &strOriginal) override
+    {
+        return exp->ReversalDump(strOriginal);
+    }
     int CalExpressionValue() override
     {
         return exp->CalExpressionValue();

@@ -59,6 +59,8 @@ public:
   int currLayerWhileNum;
   // current while content;
   int currWhileContentFlag;
+  // 当前是否为调用函数结果
+  int currCallFunc;
   // 命名
   std::map<std::string, int> syntaxNameCnt;
   // 参数表
@@ -75,5 +77,6 @@ public:
     currWhileNum = -1;
     currLayerWhileNum = -1;
     currWhileContentFlag = 0;
+    currCallFunc = 0;
   }
 };
