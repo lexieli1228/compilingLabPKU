@@ -106,7 +106,7 @@ void Visit(const koopa_raw_function_t &func)
   riscvOriginal += " .text\n";
   riscvOriginal += " .globl ";
   riscvOriginal += tempFuncName;
-  riscvOriginal += ":\n";
+  riscvOriginal += "\n";
   riscvOriginal += tempFuncName;
   riscvOriginal += ":\n";
   // 访问所有基本块
@@ -157,9 +157,13 @@ void Visit(const koopa_raw_return_t &ret)
     tempStr += "  mv a0, ";
     tempStr += currRetVal;
   }
+  else if (currRetVal == "x0")
+  {
+    tempStr += "  li a0, 0";
+  }
   else
   {
-    tempStr += "  li a0, ";
+    tempStr += "  li a0,";
     tempStr += currRetVal;
   }
   tempStr += "\n";
@@ -213,13 +217,78 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_NOT_EQ:
-
+    tempStr += "  xor ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    tempStr += "  snez ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    // 没分配新的寄存器，而是运用left Operand的寄存器
+    // 删掉旧的
+    for (int i = 0; i < singleLineRegVec.size(); ++ i)
+    {
+      if (singleLineRegVec[i].rawValue == binary.lhs)
+      {
+        singleLineRegVec[i].rawValue = valueBinary;
+      }
+    }
+    break;
   case KOOPA_RBO_GT:
+    currRegister = RegisterAllocation();
+    tempStr += "  sgt ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_LT:
+    currRegister = RegisterAllocation();
+    tempStr += "  slt ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_GE:
   case KOOPA_RBO_LE:
 
   case KOOPA_RBO_ADD:
+    currRegister = RegisterAllocation();
+    tempStr += "  add ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_SUB:
     currRegister = RegisterAllocation();
     tempStr += "  sub ";
@@ -236,13 +305,79 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     singleLineRegVec.push_back(tempIter);
     break;
   case KOOPA_RBO_MUL:
+    currRegister = RegisterAllocation();
+    tempStr += "  mul ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_DIV:
+    currRegister = RegisterAllocation();
+    tempStr += "  div ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_MOD:
-
+    currRegister = RegisterAllocation();
+    tempStr += "  rem ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_AND:
+    currRegister = RegisterAllocation();
+    tempStr += "  and ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   case KOOPA_RBO_OR:
-    riscvOriginal += "\nhere is the op value: ";
-    riscvOriginal += to_string(binaryOp);
+    currRegister = RegisterAllocation();
+    tempStr += "  or ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
     break;
   default:
     assert(false);
