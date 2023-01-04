@@ -208,7 +208,7 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     // 存入当前的表里
     // 没分配新的寄存器，而是运用left Operand的寄存器
     // 删掉旧的
-    for (int i = 0; i < singleLineRegVec.size(); ++ i)
+    for (int i = 0; i < singleLineRegVec.size(); ++i)
     {
       if (singleLineRegVec[i].rawValue == binary.lhs)
       {
@@ -233,7 +233,7 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     // 存入当前的表里
     // 没分配新的寄存器，而是运用left Operand的寄存器
     // 删掉旧的
-    for (int i = 0; i < singleLineRegVec.size(); ++ i)
+    for (int i = 0; i < singleLineRegVec.size(); ++i)
     {
       if (singleLineRegVec[i].rawValue == binary.lhs)
       {
@@ -271,9 +271,62 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     tempIter.rawValue = valueBinary;
     singleLineRegVec.push_back(tempIter);
     break;
+  // greater or equal, 检查是否不小于
   case KOOPA_RBO_GE:
+    // slt 小于是1 不小于是0
+    // seqz: 0->1
+    tempStr += "  slt ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    tempStr += "  seqz ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    // 没分配新的寄存器，而是运用left Operand的寄存器
+    // 删掉旧的
+    for (int i = 0; i < singleLineRegVec.size(); ++i)
+    {
+      if (singleLineRegVec[i].rawValue == binary.lhs)
+      {
+        singleLineRegVec[i].rawValue = valueBinary;
+      }
+    }
+    break;
+  // less or equal, 检查是否不大于
   case KOOPA_RBO_LE:
-
+    // sgt 大于是1 不大于是0
+    // seqz: 0->1
+    tempStr += "  sgt ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    tempStr += "  seqz ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    // 没分配新的寄存器，而是运用left Operand的寄存器
+    // 删掉旧的
+    for (int i = 0; i < singleLineRegVec.size(); ++i)
+    {
+      if (singleLineRegVec[i].rawValue == binary.lhs)
+      {
+        singleLineRegVec[i].rawValue = valueBinary;
+      }
+    }
+    break;
   case KOOPA_RBO_ADD:
     currRegister = RegisterAllocation();
     tempStr += "  add ";
@@ -379,6 +432,21 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     tempIter.rawValue = valueBinary;
     singleLineRegVec.push_back(tempIter);
     break;
+  case KOOPA_RBO_XOR:
+    currRegister = RegisterAllocation();
+    tempStr += "  xor ";
+    tempStr += GetRegName(currRegister);
+    tempStr += ", ";
+    tempStr += lOperand;
+    tempStr += ", ";
+    tempStr += rOperand;
+    tempStr += "\n";
+    riscvOriginal += tempStr;
+    // 存入当前的表里
+    tempIter.reg = currRegister;
+    tempIter.rawValue = valueBinary;
+    singleLineRegVec.push_back(tempIter);
+    break;
   default:
     assert(false);
   }
@@ -392,7 +460,23 @@ std::string RawValueProc(const koopa_raw_value_t &value)
     // x0恒为0
     if (value->kind.data.integer.value == 0)
     {
-      return "x0";
+      // return "x0";
+      // 新的数 需要li
+      riscvOriginal += "  li ";
+      int currRegister = RegisterAllocation();
+      std::string regName = GetRegName(currRegister);
+      riscvOriginal += regName;
+      riscvOriginal += ", ";
+      riscvOriginal += to_string(value->kind.data.integer.value);
+      riscvOriginal += "\n";
+      // 加入寄存器map
+      RiscvRegElement tempElement = RiscvRegElement();
+      tempElement.rawValue = value;
+      tempElement.reg = currRegister;
+      singleLineRegVec.push_back(tempElement);
+      // 返回当前寄存器的结果
+      return regName;
+      // return 0;
     }
     else
     {
@@ -416,7 +500,7 @@ std::string RawValueProc(const koopa_raw_value_t &value)
   else if (value->kind.tag == KOOPA_RVT_BINARY)
   {
     // 寻找有没有被分配
-    for (int i = 0; i < singleLineRegVec.size(); ++ i)
+    for (int i = 0; i < singleLineRegVec.size(); ++i)
     {
       if (singleLineRegVec[i].rawValue == value)
       {
@@ -452,6 +536,19 @@ int RegisterAllocation()
     {
       registerStatus[7] = 1;
       chosenRegister = 7;
+    }
+    else
+    {
+      // for (int i = 0; i < singleLineRegVec[i]; ++ i)
+      // {
+      //   if (singleLineRegVec[i].reg == 0)
+      //   {
+      //     singleLineRegVec.erase(i, i + 1);
+      //     registerStatus[0] = 0;
+      //     break;
+      //   }
+      // }
+      return -1;
     }
   }
   return chosenRegister;
