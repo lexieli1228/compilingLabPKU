@@ -86,10 +86,17 @@ class RiscvRegElement
 {
 public:
   koopa_raw_value_t rawValue;
+  // 代表是存在寄存器里还是存在栈里面
+  int selfMinorType;
+  // 0 代表存在寄存器里
   int reg;
+  // 1 代表存在栈里
+  int stackStride;
   RiscvRegElement()
   {
     reg = -1;
+    selfMinorType = -1;
+    stackStride = -1;
   }
   bool operator==(const RiscvRegElement &obj) const
   {
