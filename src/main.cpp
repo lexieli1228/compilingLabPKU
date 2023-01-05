@@ -270,7 +270,7 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     lOperand = GetRegName(currLeftReg);
   }
-  else
+  else 
   {
     string tempLeftReg = lOperand;
     tempLeftReg.erase(0, 1);
@@ -788,11 +788,21 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
   default:
     assert(false);
   }
+  int findFlagLeftOperand = 0;
+  int findFlagRightOperand = 0;
   for (int i = 0; i < singleLineRegVec.size(); ++ i)
   {
     if (singleLineRegVec[i].rawValue == binary.lhs || singleLineRegVec[i].rawValue == binary.rhs)
     {
-      if (singleLineRegVec[i].stackStride != 1 && singleLineRegVec[i].selfMinorType == 0)
+      if (singleLineRegVec[i].rawValue == binary.lhs)
+      {
+        findFlagLeftOperand = 1;
+      }
+      else
+      {
+        findFlagRightOperand = 1;
+      }
+      if (singleLineRegVec[i].stackStride != 1)
       {
         singleLineRegVec[i].selfMinorType = 1;
         registerStatus[singleLineRegVec[i].reg] = 0;
@@ -805,6 +815,15 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
         riscvOriginal += swTempStr;
       }
     }
+  }
+  // before loading into the register, there are integers
+  if (findFlagLeftOperand == 0)
+  {
+    registerStatus[currLeftReg] = 0;
+  }
+  if (findFlagRightOperand == 0)
+  {
+    registerStatus[currRightReg] = 0;
   }
 }
 
@@ -941,15 +960,6 @@ std::string RawValueProc(const koopa_raw_value_t &value)
     riscvOriginal += ", ";
     riscvOriginal += to_string(value->kind.data.integer.value);
     riscvOriginal += "\n";
-    // 加入寄存器map
-    RiscvRegElement tempElement = RiscvRegElement();
-    // 是寄存器
-    tempElement.selfMinorType = 0;
-    tempElement.rawValue = value;
-    tempElement.reg = currRegister;
-    tempElement.stackStride = 1;
-    singleLineRegVec.push_back(tempElement);
-    // 返回当前寄存器的结果
     return regName;
   }
   else if (value->kind.tag == KOOPA_RVT_BINARY)
@@ -1044,20 +1054,22 @@ int RegisterAllocation()
       {
         chosenRegister = singleLineRegVec[i].reg;
         riscvOriginal += "here is the uneasy scenario\n";
+        riscvOriginal += "checking registers";
+        for (int j = 0; j < singleLineRegVec.size(); ++ j)
+        {
+          riscvOriginal += " (";
+          riscvOriginal += to_string(singleLineRegVec[j].selfMinorType);
+          riscvOriginal += ", ";
+          riscvOriginal += to_string(singleLineRegVec[j].reg);
+          riscvOriginal += ", ";
+          riscvOriginal += to_string(singleLineRegVec[j].stackStride);
+          riscvOriginal += ") ";
+        } 
         singleLineRegVec[i].selfMinorType = 1;
         break;
       }
     }
   }
-  // riscvOriginal += "here is the register allocation:\n";
-  // for (int i = 0; i < singleLineRegVec.size(); ++ i)
-  // {
-  //   riscvOriginal += "stackstride: ";
-  //   riscvOriginal += to_string(singleLineRegVec[i].stackStride);
-  //   riscvOriginal += "\nreg: ";
-  //   riscvOriginal += to_string(singleLineRegVec[i].reg);
-  //   riscvOriginal += "\n";
-  // }
   return chosenRegister;
 }
 
