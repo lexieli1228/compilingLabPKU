@@ -96,7 +96,7 @@ public:
   {
     reg = -1;
     selfMinorType = -1;
-    stackStride = -1;
+    stackStride = 1;
   }
   bool operator==(const RiscvRegElement &obj) const
   {
