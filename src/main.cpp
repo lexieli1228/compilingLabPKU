@@ -140,7 +140,7 @@ int GetFuncStrideNum(const koopa_raw_function_t &func)
     {
       koopa_raw_value_t rawValue = (koopa_raw_value_t)bb->insts.buffer[k];
       // 有返回值，分配栈空间
-      if (rawValue->ty->tag == KOOPA_RTT_UNIT)
+      if (rawValue->ty->tag != KOOPA_RTT_UNIT)
       {
         RiscvRegElement tempElement = RiscvRegElement();
         // 分配栈空间给这个line
