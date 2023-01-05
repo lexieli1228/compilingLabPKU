@@ -57,7 +57,7 @@ void Visit(const koopa_raw_value_t &value);
 void Visit(const koopa_raw_return_t &ret);
 void Visit(const koopa_raw_integer_t &integer);
 void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value);
-void Visit(const koopa_raw_load_t &load);
+void Visit(const koopa_raw_load_t &load, const koopa_raw_value_t &value);
 void Visit(const koopa_raw_store_t &store, const koopa_raw_value_t &value);
 
 // 访问 raw program
@@ -185,14 +185,15 @@ void Visit(const koopa_raw_value_t &value)
     Visit(kind.data.binary, value);
     break;
   case KOOPA_RVT_ALLOC:
-    riscvOriginal += "allocing\n";
     break;
   case KOOPA_RVT_LOAD:
     // 访问 load 指令
-    Visit(kind.data.load);
+    Visit(kind.data.load, value);
+    break;
   case KOOPA_RVT_STORE:
     // 访问 store 指令
     Visit(kind.data.store, value);
+    break;
   default:
     // 其他类型暂时遇不到
     assert(false);
@@ -212,6 +213,11 @@ void Visit(const koopa_raw_return_t &ret)
   else if (currRetVal == "x0")
   {
     tempStr += "  li a0, 0";
+  }
+  else if (currRetVal[currRetVal.length() - 1] == ')')
+  {
+    tempStr += "  lw a0, ";
+    tempStr += currRetVal;
   }
   else
   {
@@ -242,9 +248,37 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
   RiscvRegElement tempElement = RiscvRegElement();
   int currFindFlag = 0;
   int currRegister = 0;
+  int currLeftReg = 0;
+  int currRightReg = 0;
   switch (binaryOp)
   {
   case KOOPA_RBO_EQ:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     tempStr += "  xor ";
     tempStr += lOperand;
     tempStr += ", ";
@@ -287,6 +321,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_NOT_EQ:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     tempStr += "  xor ";
     tempStr += lOperand;
     tempStr += ", ";
@@ -329,6 +389,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_GT:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  sgt ";
     tempStr += GetRegName(currRegister);
@@ -358,6 +444,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_LT:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  slt ";
     tempStr += GetRegName(currRegister);
@@ -389,6 +501,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
   case KOOPA_RBO_GE:
     // slt 小于是1 不小于是0
     // seqz: 0->1
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     tempStr += "  slt ";
     tempStr += lOperand;
     tempStr += ", ";
@@ -434,6 +572,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
   case KOOPA_RBO_LE:
     // sgt 大于是1 不大于是0
     // seqz: 0->1
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     tempStr += "  sgt ";
     tempStr += lOperand;
     tempStr += ", ";
@@ -476,6 +640,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_ADD:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  add ";
     tempStr += GetRegName(currRegister);
@@ -504,6 +694,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_SUB:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  sub ";
     tempStr += GetRegName(currRegister);
@@ -532,6 +748,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_MUL:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  mul ";
     tempStr += GetRegName(currRegister);
@@ -560,6 +802,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_DIV:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  div ";
     tempStr += GetRegName(currRegister);
@@ -588,6 +856,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_MOD:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  rem ";
     tempStr += GetRegName(currRegister);
@@ -616,6 +910,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_AND:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  and ";
     tempStr += GetRegName(currRegister);
@@ -644,6 +964,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_OR:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  or ";
     tempStr += GetRegName(currRegister);
@@ -672,6 +1018,32 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
     }
     break;
   case KOOPA_RBO_XOR:
+    if (lOperand[lOperand.length() - 1] == ')')
+    {
+      currLeftReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.lhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currLeftReg;
+        }
+      }
+      lOperand = GetRegName(currLeftReg);
+    }
+    if (rOperand[rOperand.length() - 1] == ')')
+    {
+      currRightReg = RegisterAllocation();
+      for (int i = 0; i < singleLineRegVec.size(); ++i)
+      {
+        if (singleLineRegVec[i].rawValue == binary.rhs)
+        {
+          singleLineRegVec[i].selfMinorType = 0;
+          singleLineRegVec[i].reg = currRightReg;
+        }
+      }
+      rOperand = GetRegName(currRightReg);
+    }
     currRegister = RegisterAllocation();
     tempStr += "  xor ";
     tempStr += GetRegName(currRegister);
@@ -705,22 +1077,54 @@ void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value)
 }
 
 // load 指令
-void Visit(const koopa_raw_load_t &load)
+void Visit(const koopa_raw_load_t &load, const koopa_raw_value_t &value)
 {
   string tempStr = "";
   string getValueResult = RawValueProc(load.src);
-  int currReg = RegisterAllocation();
-  tempStr += "  lw ";
-  tempStr += GetRegName(currReg);
-  tempStr += ", ";
-  tempStr += getValueResult;
-  tempStr += "\n";
-  for (int i = 0; i < singleLineRegVec.size(); ++i)
+  int currReg = -1;
+  string currRegString = "";
+  if (getValueResult[getValueResult.length() - 1] != ')')
   {
-    if (singleLineRegVec[i].rawValue == load.src)
+    if (getValueResult[0] == 'a' || getValueResult[0] == 't')
     {
-      singleLineRegVec[i].selfMinorType = 0;
-      singleLineRegVec[i].reg = currReg;
+      currRegString = getValueResult;
+      string tempCurrReg = getValueResult;
+      tempCurrReg.erase(0, 1);
+      currReg = atoi(tempCurrReg.c_str());
+    }
+    else
+    {
+      currReg = RegisterAllocation();
+      tempStr += "  li ";
+      tempStr += GetRegName(currReg);
+      tempStr += ", ";
+      tempStr += getValueResult;
+      tempStr += "\n";
+    }
+  }
+  else
+  {
+    currReg = RegisterAllocation();
+    tempStr += "  lw ";
+    tempStr += GetRegName(currReg);
+    tempStr += ", ";
+    tempStr += getValueResult;
+    tempStr += "\n";
+  }
+  if (currReg != -1)
+  {
+    for (int i = 0; i < singleLineRegVec.size(); ++i)
+    {
+      // if (singleLineRegVec[i].rawValue == load.src)
+      // {
+      //   singleLineRegVec[i].selfMinorType = 0;
+      //   singleLineRegVec[i].reg = currReg;
+      // }
+      if (singleLineRegVec[i].rawValue == value)
+      {
+        singleLineRegVec[i].selfMinorType = 0;
+        singleLineRegVec[i].reg = currReg;
+      }
     }
   }
   riscvOriginal += tempStr;
@@ -733,15 +1137,48 @@ void Visit(const koopa_raw_store_t &store, const koopa_raw_value_t &value)
   // 先load value到寄存器中再存入dest
   string tempStr = "";
   string getValueResult = RawValueProc(store.value);
+  for (int i = 0; i < singleLineRegVec.size(); ++i)
+  {
+    if (singleLineRegVec[i].rawValue == store.value)
+    {
+      singleLineRegVec[i].selfMinorType = 0;
+    }
+  }
   string getDestResult = RawValueProc(store.dest);
-  int currReg = RegisterAllocation();
-  tempStr += "  lw ";
-  tempStr += GetRegName(currReg);
-  tempStr += ", ";
-  tempStr += getValueResult;
-  tempStr += "\n";
+  int currReg = -1;
+  string currRegString = "";
+  if (getValueResult[getValueResult.length() - 1] != ')')
+  {
+    if (getValueResult[0] == 'a' || getValueResult[0] == 't')
+    {
+      currRegString = getValueResult;
+      string tempCurrReg = getValueResult;
+      tempCurrReg.erase(0, 1);
+      currReg = atoi(tempCurrReg.c_str());
+    }
+    else
+    {
+      currReg = RegisterAllocation();
+      currRegString = GetRegName(currReg);
+      tempStr += "  li ";
+      tempStr += currRegString;
+      tempStr += ", ";
+      tempStr += getValueResult;
+      tempStr += "\n";
+    }
+  }
+  else
+  {
+    currReg = RegisterAllocation();
+    currRegString = GetRegName(currReg);
+    tempStr += "  lw ";
+    tempStr += currRegString;
+    tempStr += ", ";
+    tempStr += getValueResult;
+    tempStr += "\n";
+  }
   tempStr += "  sw ";
-  tempStr += GetRegName(currReg);
+  tempStr += currRegString;
   tempStr += ", ";
   tempStr += getDestResult;
   tempStr += "\n";
@@ -749,7 +1186,6 @@ void Visit(const koopa_raw_store_t &store, const koopa_raw_value_t &value)
   {
     if (singleLineRegVec[i].rawValue == store.value)
     {
-      singleLineRegVec[i].selfMinorType = 0;
       singleLineRegVec[i].reg = currReg;
     }
   }
