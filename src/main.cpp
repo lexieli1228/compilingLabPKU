@@ -59,6 +59,8 @@ void Visit(const koopa_raw_integer_t &integer);
 void Visit(const koopa_raw_binary_t &binary, const koopa_raw_value_t &value);
 void Visit(const koopa_raw_load_t &load, const koopa_raw_value_t &value);
 void Visit(const koopa_raw_store_t &store, const koopa_raw_value_t &value);
+void Visit(const koopa_raw_branch_t &branch, const koopa_raw_value_t &value);
+void Visit(const koopa_raw_jump_t &jump, const koopa_raw_value_t &value);
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program)
@@ -157,11 +159,18 @@ int GetFuncStrideNum(const koopa_raw_function_t &func)
 }
 
 // 访问基本块
+// 如果是新块就要输出新的title
 void Visit(const koopa_raw_basic_block_t &bb)
 {
-  // 执行一些其他的必要操作
-  // ...
-  // 访问所有指令
+  string tempBBName = bb->name;
+  tempBBName.erase(0, 1);
+  string tempStr = "";
+  if (tempBBName != "entry")
+  {
+    tempStr += tempBBName;
+    tempStr += ":\n";
+  }
+  riscvOriginal += tempStr;
   Visit(bb->insts);
 }
 
@@ -193,6 +202,14 @@ void Visit(const koopa_raw_value_t &value)
   case KOOPA_RVT_STORE:
     // 访问 store 指令
     Visit(kind.data.store, value);
+    break;
+  case KOOPA_RVT_BRANCH:
+    // 访问 conditional branch 指令
+    Visit(kind.data.branch, value);
+    break;
+  case KOOPA_RVT_JUMP:
+    // 访问 unconditional jump 指令
+    Visit(kind.data.jump, value);
     break;
   default:
     // 其他类型暂时遇不到
@@ -944,6 +961,85 @@ void Visit(const koopa_raw_store_t &store, const koopa_raw_value_t &value)
       registerStatus[singleLineRegVec[i].reg] = 0;
     }
   }
+  riscvOriginal += tempStr;
+}
+
+// conditional branch jump 指令
+void Visit(const koopa_raw_branch_t &branch, const koopa_raw_value_t &value)
+{
+  // calculate cond
+  string condStr = RawValueProc(branch.cond);
+  int currReg = 0;
+  string tempStr = "";
+  // address
+  if (condStr[condStr.length() - 1] == ')')
+  {
+    // 分配一个寄存器
+    currReg = RegisterAllocation();
+    for (int i = 0; i < singleLineRegVec.size(); ++ i)
+    {
+      if (singleLineRegVec[i].rawValue == branch.cond)
+      {
+        singleLineRegVec[i].selfMinorType = 0;
+        singleLineRegVec[i].reg = currReg;
+        tempStr += " lw ";
+        tempStr += GetRegName(currReg);
+        tempStr += ", ";
+        tempStr += condStr;
+        condStr = GetRegName(currReg);
+        tempStr += "\n";
+      }
+    }
+  }
+  else 
+  {
+    string tempReg = condStr;
+    tempReg.erase(0, 1);
+    currReg = atoi(tempReg.c_str());
+  }
+  string trueBBName = branch.true_bb->name;
+  string falseBBName = branch.false_bb->name;
+  trueBBName.erase(0, 1);
+  falseBBName.erase(0, 1);
+  tempStr += "  bnez ";
+  tempStr += condStr;
+  tempStr += ", ";
+  tempStr += trueBBName;
+  tempStr += "\n";
+  tempStr += "  j ";
+  tempStr += falseBBName;
+  tempStr += "\n";
+
+  int findFlagCond = 0;
+  for (int i = 0; i < singleLineRegVec.size(); ++ i)
+  {
+    if (singleLineRegVec[i].rawValue == branch.cond)
+    {
+      findFlagCond = 1;
+      if (singleLineRegVec[i].stackStride != 1)
+      {
+        singleLineRegVec[i].selfMinorType = 1;
+        registerStatus[singleLineRegVec[i].reg] = 0;
+      }
+    }
+  }
+  // before loading into the register, there are integers
+  if (findFlagCond == 0)
+  {
+    registerStatus[currReg] = 0;
+  }
+  riscvOriginal += tempStr;
+}
+
+// unconditional jump 指令
+void Visit(const koopa_raw_jump_t &jump, const koopa_raw_value_t &value)
+{
+  string tempStr = "";
+  string tempTarget = jump.target->name;
+  tempTarget.erase(0, 1);
+  tempStr += "  j ";
+  tempStr += tempTarget;
+  tempStr += "\n";
   riscvOriginal += tempStr;
 }
 
